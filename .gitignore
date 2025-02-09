@@ -1,0 +1,35 @@
+# Default ignored files
+/shelf/
+/wandb/
+/weights/
+/workspace.xml
+# ignore all .xml files
+*.xml
+# ignore all .iml files
+*.iml
+# ignore all .png files
+*.png
+# ignore all .jpg files
+*.jpg
+# ignore all .jpeg files
+*.jpeg
+# ignore all .json files
+*.json
+# ignore all .npz files
+*.npz
+# ignore all .webm files
+*.webm
+# ignore all .npy files
+*.npy
+# ignore all .pth files
+*.pth
+# ignore all .json files
+*.json
+# ignore all .log files
+*.log
+# ignore all .pyc files
+*.pyc
+*.wandb
+# ignore all events files
+events.out.tfevents.*
+

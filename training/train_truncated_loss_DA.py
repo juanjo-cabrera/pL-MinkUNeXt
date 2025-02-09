@@ -285,7 +285,7 @@ if __name__ == '__main__':
     TRAIN_FOLDER = "TrainingBaseline/"
     VAL_FOLDER = "Validation/"
     # del 32 al 38
-    aug_modes = [34, 35]
+    aug_modes = [25]
     
     PARAMS.cuda_device = 'cuda:0'
     
