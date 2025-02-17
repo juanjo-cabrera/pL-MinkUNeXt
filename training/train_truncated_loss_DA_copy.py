@@ -189,9 +189,9 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 50:
+            if epoch % 10 == 0 or epoch == 2 or epoch == 4 or epoch == 6 or epoch == 8:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4_copy.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -288,8 +288,7 @@ if __name__ == '__main__':
     #aug_modes = [25]
     #aug_modes = [25]
     #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
-    aug_modes = ['only_best_effects0.5']
+    aug_modes = ['da2best13', 'da2best14']
     PARAMS.cuda_device = 'cuda:1'
     
     for aug_mode in aug_modes:

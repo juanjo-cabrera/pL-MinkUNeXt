@@ -80,17 +80,19 @@ def construct_query_and_database_sets(base_path, df_test, df_database, output_na
     for index, row in df_test.iterrows():
         test[len(test.keys())] = {'query': row['file'], 'x': row['x'],
                                             'y': row['y']}
-    distances = []
+    #distances = []
     for key in range(len(test.keys())):
         coor = np.array([[test[key]["x"], test[key]["y"]]])
         # query the database tree for the nearest point cloud
-        index = database_tree.query(coor, k=1)
-        distances.append(index[0])       
+        index = database_tree.query_radius(coor, r=0.5)
+        #distances.append(index[0])    
+        # change the shape from (n, ) to (1, n) 
+        index = np.array([index[0]])   
         
         # indices of the positive matches in database i of each query (key) in test set j
-        test[key][0] = index[1].tolist()
+        test[key][0] = index.tolist()
     
-    print("Mean of the minimum distance: ", np.mean(distances))
+    #print("Mean of the minimum distance: ", np.mean(distances))
     output_to_file(database, base_path, output_name + '_evaluation_database.pickle')
     output_to_file(test, base_path, output_name + '_evaluation_query.pickle')
 

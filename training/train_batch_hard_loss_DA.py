@@ -13,28 +13,57 @@ sys.path.append(parent_dir)
 from config import PARAMS 
 from trainer import *
 from model.minkunext import MinkUNeXt
-from losses.truncated_smoothap import TruncatedSmoothAP
+from losses.triplet_loss import make_loss
 import time
 from eval.pnv_evaluate import *
 from datasets.freiburg.generate_training_tuples_baseline import *
+
+
+def bh_print_stats(stats, phase):
+    if 'num_pairs' in stats:
+        # For batch hard contrastive loss
+        s = '{} - Mean loss: {:.6f}    Avg. embedding norm: {:.4f}   Pairs per batch (all/non-zero pos/non-zero neg): {:.1f}/{:.1f}/{:.1f}'
+        print(s.format(phase, stats['loss'], stats['avg_embedding_norm'], stats['num_pairs'],
+                       stats['pos_pairs_above_threshold'], stats['neg_pairs_above_threshold']))
+    elif 'num_triplets' in stats:
+        # For triplet loss
+        s = '{} - Mean loss: {:.6f}    Avg. embedding norm: {:.4f}   Triplets per batch (all/non-zero): {:.1f}/{:.1f}'
+        print(s.format(phase, stats['loss'], stats['avg_embedding_norm'], stats['num_triplets'],
+                       stats['num_non_zero_triplets']))
+    elif 'num_pos' in stats:
+        s = '{} - Mean loss: {:.6f}    Avg. embedding norm: {:.4f}   #positives/negatives: {:.1f}/{:.1f}'
+        print(s.format(phase, stats['loss'], stats['avg_embedding_norm'], stats['num_pos'], stats['num_neg']))
+
+    s = ''
+    l = []
+    if 'mean_pos_pair_dist' in stats:
+        s += 'Pos dist (min/mean/max): {:.4f}/{:.4f}/{:.4f}   Neg dist (min/mean/max): {:.4f}/{:.4f}/{:.4f}'
+        l += [stats['min_pos_pair_dist'], stats['mean_pos_pair_dist'], stats['max_pos_pair_dist'],
+              stats['min_neg_pair_dist'], stats['mean_neg_pair_dist'], stats['max_neg_pair_dist']]
+    if 'pos_loss' in stats:
+        if len(s) > 0:
+            s += '   '
+        s += 'Pos loss: {:.4f}  Neg loss: {:.4f}'
+        l += [stats['pos_loss'], stats['neg_loss']]
+    if len(l) > 0:
+        print(s.format(*l))
 
 def get_datetime():
     return time.strftime("%Y%m%d_%H%M")
 
 def do_train(model):
     # Create model class
-    loss_fn = TruncatedSmoothAP(tau1=PARAMS.tau1, similarity=PARAMS.similarity,
-                                    positives_per_query=PARAMS.positives_per_query)
+    loss_fn = make_loss(params=PARAMS)
 
     
     
     s = get_datetime()
     if PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_base/':
-        model_name = 'Indoor_MinkUNeXt_base_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_base_batchhard_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
-        model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_small_batchhard_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_batchhard_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -95,103 +124,91 @@ def do_train(model):
     params_dict = vars(PARAMS)
     # Initialize wandb
     if PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_base/':
-        wandb.init(project='IndoorMinkUNeXt_base_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+        wandb.init(project='IndoorMinkUNeXt_base_experiment_batchhard', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
-        wandb.init(project='IndoorMinkUNeXt_small_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+        wandb.init(project='IndoorMinkUNeXt_small_experiment_batchhard', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
     else:
-        wandb.init(project='IndoorMinkUNeXt_experiment_truncated', config=params_dict, name= 'aug' + str(PARAMS.aug_mode) +'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+        wandb.init(project='IndoorMinkUNeXt_experiment_batchhard', config=params_dict, name= 'aug' + str(PARAMS.aug_mode) +'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
 
     ###########################################################################
     #
     ###########################################################################
 
-    # Training statistics
-    stats = {'train': [], 'eval': []}
-    stats['best_val_recall'] = 0
-
-    if 'val' in dataloaders:
-        # Validation phase
+    is_validation_set = 'val' in dataloaders
+    if is_validation_set:
         phases = ['train', 'val']
-        stats['val'] = []
     else:
         phases = ['train']
 
+    # Training statistics
+    stats = {'train': [], 'val': [], 'eval': []}
+
     for epoch in tqdm.tqdm(range(1, PARAMS.epochs + 1)):
         metrics = {'train': {}, 'val': {}}      # Metrics for wandb reporting
-
         for phase in phases:
-            running_stats = []  # running stats for the current epoch and phase
-            count_batches = 0
-
             if phase == 'train':
-                global_iter = iter(dataloaders['train'])
+                model.train()
             else:
-                global_iter = None if dataloaders['val'] is None else iter(dataloaders['val'])
+                model.eval()
 
-            while True:
+            running_stats = []  # running stats for the current epoch
+
+            count_batches = 0
+            for batch, positives_mask, negatives_mask in dataloaders[phase]:
+                # batch is (batch_size, n_points, 3) tensor
+                # labels is list with indexes of elements forming a batch
                 count_batches += 1
                 batch_stats = {}
-                if PARAMS.debug and count_batches > 2:
-                    break
 
-                try:
-                    temp_stats = train_step_fn(global_iter, model, phase, device, optimizer, loss_fn)
-                    batch_stats['global'] = temp_stats
 
-                except StopIteration:
-                    # Terminate the epoch when one of dataloders is exhausted
-                    break
+                batch = {e: batch[e].to(device) for e in batch}
+
+                n_positives = torch.sum(positives_mask).item()
+                n_negatives = torch.sum(negatives_mask).item()
+                if n_positives == 0 or n_negatives == 0:
+                    # Skip a batch without positives or negatives
+                    print('WARNING: Skipping batch without positive or negative examples')
+                    continue
+
+                optimizer.zero_grad()
+
+                with torch.set_grad_enabled(phase == 'train'):
+                    # Compute embeddings of all elements
+                    embeddings = model(batch)
+                    loss, temp_stats, _ = loss_fn(embeddings['global'], positives_mask, negatives_mask)
+
+                    temp_stats = tensors_to_numbers(temp_stats)
+                    batch_stats.update(temp_stats)
+                    batch_stats['loss'] = loss.item()
+
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
 
                 running_stats.append(batch_stats)
+                torch.cuda.empty_cache()  # Prevent excessive GPU memory consumption by SparseTensors
 
             # Compute mean stats for the phase
             epoch_stats = {}
-            for substep in running_stats[0]:
-                epoch_stats[substep] = {}
-                for key in running_stats[0][substep]:
-                    temp = [e[substep][key] for e in running_stats]
-                    if type(temp[0]) is dict:
-                        epoch_stats[substep][key] = {key: np.mean([e[key] for e in temp]) for key in temp[0]}
-                    elif type(temp[0]) is np.ndarray:
-                        # Mean value per vector element
-                        epoch_stats[substep][key] = np.mean(np.stack(temp), axis=0)
-                    else:
-                        epoch_stats[substep][key] = np.mean(temp)
+            for key in running_stats[0].keys():
+                temp = [e[key] for e in running_stats]
+                epoch_stats[key] = np.mean(temp)
 
             stats[phase].append(epoch_stats)
-            print_stats(phase, epoch_stats)
+            bh_print_stats(epoch_stats, phase)
 
-            # Log metrics for wandb
-            metrics[phase]['loss1'] = epoch_stats['global']['loss']
-            if 'num_non_zero_triplets' in epoch_stats['global']:
-                metrics[phase]['active_triplets1'] = epoch_stats['global']['num_non_zero_triplets']
+        # ******* EPOCH END *******
 
-            if 'positive_ranking' in epoch_stats['global']:
-                metrics[phase]['positive_ranking'] = epoch_stats['global']['positive_ranking']
+        if scheduler is not None:
+            scheduler.step()
 
-            if 'recall' in epoch_stats['global']:
-                metrics[phase]['recall@1'] = epoch_stats['global']['recall'][1]
+        loss_metrics = {'train': stats['train'][-1]['loss']}
 
-            if 'ap' in epoch_stats['global']:
-                metrics[phase]['AP'] = epoch_stats['global']['ap']
-
-
-            # save the model weights with the best validation recall@1
-            if phase == 'val' and PARAMS.save_best and epoch_stats['global']['recall'][1] > stats['best_val_recall']:
-                stats['best_val_recall'] = epoch_stats['global']['recall'][1]
-                best_model_path = model_pathname + '_best.pth'
-                print(f"Saving best weights: {best_model_path}")
-                torch.save(model.state_dict(), best_model_path)
-
-
-        # ******* FINALIZE THE EPOCH *******
-
-        # evaluate the model 
         if 'val' in phases:
-            #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 50:
+            #if epoch <= 40:
+            if epoch % 10 == 0:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_batchhard_results_v4.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -218,35 +235,61 @@ def do_train(model):
                 metrics['val']['recall_sunny'] = recall_sunny
                 print_eval_stats(stats_validation)
                 wandb.log(metrics['val'])
+                torch.cuda.empty_cache()  # Prevent excessive GPU memory consumption by SparseTensors
 
                 model.train(True)
-
-
-
-        wandb.log(metrics)
-
-        if scheduler is not None:
-            scheduler.step()
-
-        #if params.save_freq > 0 and epoch % params.save_freq == 0:
-        #    torch.save(model.state_dict(), model_pathname + "_" + str(epoch) + ".pth")
-
-        #if params.batch_expansion_th is not None:
-            # Dynamic batch size expansion based on number of non-zero triplets
-            # Ratio of non-zero triplets
-        #    le_train_stats = stats['train'][-1]  # Last epoch training stats
-        #    rnz = le_train_stats['global']['num_non_zero_triplets'] / le_train_stats['global']['num_triplets']
-        #    if rnz < params.batch_expansion_th:
-        #        dataloaders['train'].batch_sampler.expand_batch()
     
-    print('Training completed.')
 
-    # Finaliza la sesión de wandb
-    wandb.finish()
+        # Log metrics for wandb
+        if 'train' in phases:
+            if 'num_triplets' in stats['train'][-1]:
+                metrics['train']['num_triplets'] = stats['train'][-1]['num_triplets']
+                metrics['train']['num_non_zero_triplets'] = stats['train'][-1]['num_non_zero_triplets']
+            elif 'num_pairs' in stats['train'][-1]:
+                metrics['train']['num_pairs'] = stats['train'][-1]['num_pairs']
+                metrics['train']['pos_pairs_above_threshold'] = stats['train'][-1]['pos_pairs_above_threshold']
+                metrics['train']['neg_pairs_above_threshold'] = stats['train'][-1]['neg_pairs_above_threshold']
+            metrics['train']['loss'] = stats['train'][-1]['loss']
+        
+        if 'val' in phases:
+            if 'num_triplets' in stats['val'][-1]:
+                metrics['val']['num_triplets'] = stats['val'][-1]['num_triplets']
+                metrics['val']['num_non_zero_triplets'] = stats['val'][-1]['num_non_zero_triplets']
+            elif 'num_pairs' in stats['val'][-1]:
+                metrics['val']['num_pairs'] = stats['val'][-1]['num_pairs']
+                metrics['val']['pos_pairs_above_threshold'] = stats['val'][-1]['pos_pairs_above_threshold']
+                metrics['val']['neg_pairs_above_threshold'] = stats['val'][-1]['neg_pairs_above_threshold']
+
+        
+
+ 
+
+        if PARAMS.batch_expansion_th is not None:
+            # Dynamic batch expansion
+            epoch_train_stats = stats['train'][-1]
+            if 'num_non_zero_triplets' not in epoch_train_stats:
+                print('WARNING: Batch size expansion is enabled, but the loss function is not supported')
+            else:
+                # Ratio of non-zero triplets
+                rnz = epoch_train_stats['num_non_zero_triplets'] / epoch_train_stats['num_triplets']
+                if rnz < PARAMS.batch_expansion_th:
+                    dataloaders['train'].batch_sampler.expand_batch()
+        
+        # Log metrics for wandb
+        wandb.log(metrics['train'])
+        
+    print('')
+    
+
+    
+    ###########################################################################
     # Save final model weights
     final_model_path = model_pathname + '_final.pth'
     print(f"Saving weights: {final_model_path}")
     torch.save(model.state_dict(), final_model_path)
+    # Finaliza la sesión de wandb
+    wandb.finish()
+
        
     
 
@@ -278,19 +321,28 @@ if __name__ == '__main__':
     heights = [-0.25]
 
     # distances from 0.3 up to 2.0
-    positive_distance = [0.7]
-    negative_distance = [0.7]
+    positive_distance = [0.5]
+    negative_distance = [1.0]
     dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/']
     PARAMS.epochs = 80
     TRAIN_FOLDER = "TrainingBaseline/"
     VAL_FOLDER = "Validation/"
+    PARAMS.loss = 'BatchHardTripletMarginLoss'
+    PARAMS.normalize_embeddings = False
+    PARAMS.margin = 0.2
+    PARAMS.num_workers = 12
+    PARAMS.batch_size = 16
+    PARAMS.batch_size_limit = 54
+    PARAMS.batch_expansion_rate = 1.4
+    PARAMS.batch_expansion_th = 0.7
+    PARAMS.cuda_device = 'cuda:1'
+    PARAMS.batch_split_size = None
+    PARAMS.optimizer = 'Adam'
     # del 32 al 38
     #aug_modes = [25]
     #aug_modes = [25]
     #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
-    aug_modes = ['only_best_effects0.5']
-    PARAMS.cuda_device = 'cuda:1'
+    aug_modes = ['remove_block', 'scale_xy2']
     
     for aug_mode in aug_modes:
         PARAMS.aug_mode = aug_mode

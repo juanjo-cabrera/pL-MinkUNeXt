@@ -70,6 +70,47 @@ class TrainingDataset(Dataset):
     def __getitem__(self, ndx):
         # Load point cloud and apply transform
         file_pathname = os.path.join(self.dataset_path, self.queries[ndx].rel_scan_filepath)
+        if PARAMS.aug_mode == '3depths0.7':
+            # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
+            # en una probabilidad del 40% se cambia el path
+            if np.random.rand() < 0.7:
+                if np.random.rand() < 0.5:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                else:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+        elif PARAMS.aug_mode == '3depths0.8':
+            # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
+            # en una probabilidad del 40% se cambia el path
+            if np.random.rand() < 0.8:
+                if np.random.rand() < 0.5:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                else:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+        elif PARAMS.aug_mode == '3depths0.9':
+            # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
+            # en una probabilidad del 40% se cambia el path
+            if np.random.rand() < 0.9:
+                if np.random.rand() < 0.5:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                else:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+        elif PARAMS.aug_mode == 'only_best_effects':
+            # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
+            # en una probabilidad del 40% se cambia el path
+            if np.random.rand() < 0.4:
+                if np.random.rand() < 0.5:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                else:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+        elif PARAMS.aug_mode == 'only_best_effects0.5':
+            # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
+            # en una probabilidad del 50% se cambia el path
+            if np.random.rand() < 0.5:
+                if np.random.rand() < 0.5:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                else:
+                    file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
         query = self.pc_loader.read_pc(file_pathname)
         query_points = torch.tensor(query['points'], dtype=torch.float)      
         query_color = torch.tensor(query['colors'], dtype=torch.float)

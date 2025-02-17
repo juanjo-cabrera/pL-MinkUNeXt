@@ -17,6 +17,7 @@ from losses.truncated_smoothap import TruncatedSmoothAP
 import time
 from eval.pnv_evaluate import *
 from datasets.freiburg.generate_training_tuples_baseline import *
+from datasets.freiburg.generate_training_tuples_baseline_3depths import *
 
 def get_datetime():
     return time.strftime("%Y%m%d_%H%M")
@@ -189,7 +190,7 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 50:
+            if epoch % 10 == 0:
                 # write results to a .txt withou deleting previous results
                 file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
                 model.eval()
@@ -284,13 +285,8 @@ if __name__ == '__main__':
     PARAMS.epochs = 80
     TRAIN_FOLDER = "TrainingBaseline/"
     VAL_FOLDER = "Validation/"
-    # del 32 al 38
-    #aug_modes = [25]
-    #aug_modes = [25]
-    #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
-    aug_modes = ['only_best_effects0.5']
-    PARAMS.cuda_device = 'cuda:1'
+    aug_modes = [0]
+    PARAMS.cuda_device = 'cuda:0'
     
     for aug_mode in aug_modes:
         PARAMS.aug_mode = aug_mode
@@ -321,11 +317,11 @@ if __name__ == '__main__':
                         PARAMS.negative_distance = negative_distance[i]
                         print('Positive distance: ', PARAMS.positive_distance)
                         print('Negative distance: ', PARAMS.negative_distance)
-                        train_pickle = 'training_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                        train_pickle = 'training_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '_3depths.pickle'
                         val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
                         # check if the pickle files exist
                         if not os.path.exists(base_path + TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + VAL_FOLDER + val_pickle):
-                            generate_pickle(TRAIN_FOLDER, train_pickle)
+                            generate_pickle_3depths(TRAIN_FOLDER, train_pickle)
                             generate_pickle(VAL_FOLDER, val_pickle)
                         PARAMS.train_file = train_pickle
                         PARAMS.val_file = val_pickle

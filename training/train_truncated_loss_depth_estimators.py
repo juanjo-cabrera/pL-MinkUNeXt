@@ -33,6 +33,10 @@ def do_train(model):
         model_name = 'Indoor_MinkUNeXt_base_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+    elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_marigold/':
+        model_name = 'Indoor_MinkUNeXt_marigold_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+    elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_Friburgo/':
+        model_name = 'Indoor_MinkUNeXt_metric_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
         model_name = 'Indoor_MinkUNeXt_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
@@ -189,9 +193,9 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 50:
+            if epoch % 10 == 0:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_depth_estimator_results_v4.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -280,7 +284,7 @@ if __name__ == '__main__':
     # distances from 0.3 up to 2.0
     positive_distance = [0.7]
     negative_distance = [0.7]
-    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/']
+    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_Friburgo/']
     PARAMS.epochs = 80
     TRAIN_FOLDER = "TrainingBaseline/"
     VAL_FOLDER = "Validation/"
@@ -288,9 +292,8 @@ if __name__ == '__main__':
     #aug_modes = [25]
     #aug_modes = [25]
     #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
-    aug_modes = ['only_best_effects0.5']
-    PARAMS.cuda_device = 'cuda:1'
+    aug_modes = [0]
+    PARAMS.cuda_device = 'cuda:0'
     
     for aug_mode in aug_modes:
         PARAMS.aug_mode = aug_mode
@@ -324,9 +327,9 @@ if __name__ == '__main__':
                         train_pickle = 'training_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
                         val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
                         # check if the pickle files exist
-                        if not os.path.exists(base_path + TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + VAL_FOLDER + val_pickle):
-                            generate_pickle(TRAIN_FOLDER, train_pickle)
-                            generate_pickle(VAL_FOLDER, val_pickle)
+                        # if not os.path.exists(base_path + TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + VAL_FOLDER + val_pickle):
+                        generate_pickle(TRAIN_FOLDER, train_pickle)
+                        generate_pickle(VAL_FOLDER, val_pickle)
                         PARAMS.train_file = train_pickle
                         PARAMS.val_file = val_pickle
                         do_train(model)
