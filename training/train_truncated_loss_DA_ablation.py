@@ -34,7 +34,7 @@ def do_train(model):
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_truncated_aug' + 'only_best_effects' + str(PARAMS.p_depth) + '_' + str(PARAMS.p_others) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -94,12 +94,12 @@ def do_train(model):
     # Create a dictionary with the parameters
     params_dict = vars(PARAMS)
     # Initialize wandb
-    if PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_base/':
-        wandb.init(project='IndoorMinkUNeXt_base_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
-    elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
-        wandb.init(project='IndoorMinkUNeXt_small_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
-    else:
-        wandb.init(project='IndoorMinkUNeXt_experiment_truncated', config=params_dict, name= 'aug' + str(PARAMS.aug_mode) +'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+    # if PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_base/':
+    #     wandb.init(project='IndoorMinkUNeXt_base_experiment_truncated2', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+    # elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
+    #     wandb.init(project='IndoorMinkUNeXt_small_experiment_truncated2', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+    # else:
+    #     wandb.init(project='IndoorMinkUNeXt_experiment_truncated2', config=params_dict, name= 'aug' + str(PARAMS.aug_mode) +'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
 
     ###########################################################################
     #
@@ -190,9 +190,9 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 80:
+            if epoch % 10 == 0 and epoch >= 100:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_ablation.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -227,13 +227,13 @@ def do_train(model):
                 metrics['val']['recall_night'] = recall_night
                 metrics['val']['recall_sunny'] = recall_sunny
                 print_eval_stats(stats_validation)
-                wandb.log(metrics['val'])
+                # wandb.log(metrics['val'])
 
                 model.train(True)
 
 
 
-        wandb.log(metrics)
+        # wandb.log(metrics)
 
         if scheduler is not None:
             scheduler.step()
@@ -252,7 +252,7 @@ def do_train(model):
     print('Training completed.')
 
     # Finaliza la sesión de wandb
-    wandb.finish()
+    # wandb.finish()
     # Save final model weights
     final_model_path = model_pathname + '_final.pth'
     print(f"Saving weights: {final_model_path}")
@@ -299,56 +299,62 @@ if __name__ == '__main__':
     #aug_modes = [25]
     #aug_modes = [25]
     #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    # aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
-    aug_modes = ['only_best_effects0.5']
+    PARAMS.aug_mode = 'only_best_effects'
     PARAMS.cuda_device = 'cuda:1'
+    
+    p_depth = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    p_others = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
     PARAMS.use_rgb = False
     PARAMS.use_gray = False
-    PARAMS.use_video = False
-    
-    for aug_mode in aug_modes:
-        PARAMS.aug_mode = aug_mode
-        print('Augmentation mode: ', PARAMS.aug_mode)
-        for voxel_size in voxel_sizes:
-            for height in heights:
-                for dataset_folder in dataset_folders:
-                    PARAMS.dataset_folder = dataset_folder
-                    base_path = PARAMS.dataset_folder
-                    PARAMS.height = height
-                    PARAMS.voxel_size = voxel_size
-                    print('Voxel size: ', PARAMS.voxel_size)
-                    print('Height: ', PARAMS.height)
-                    for i in range(len(positive_distance)):
-                        # Restablecer semillas aleatorias
-                        torch.manual_seed(42)
-                        torch.cuda.manual_seed(42)
-                        np.random.seed(42)
-                        random.seed(42)
-                        torch.backends.cudnn.deterministic = True
-                        torch.backends.cudnn.benchmark = False
-                        # Load a pretrained model
-                        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
-                        if PARAMS.weights_path is not None:
-                            model.load_state_dict(torch.load(PARAMS.weights_path))
-                            print('Model loaded from: {}'.format(PARAMS.weights_path))
-                        if PARAMS.use_rgb:
-                            model.conv0p1s1 = ME.MinkowskiConvolution(
-                                3, 32, kernel_size=5, dimension=3)
-                        PARAMS.positive_distance = positive_distance[i]            
-                        PARAMS.negative_distance = negative_distance[i]
-                        print('Positive distance: ', PARAMS.positive_distance)
-                        print('Negative distance: ', PARAMS.negative_distance)
-                        train_pickle = 'training_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-                        val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-                        # check if the pickle files exist
-                        if not os.path.exists(base_path + TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + VAL_FOLDER + val_pickle):
-                            generate_pickle(TRAIN_FOLDER, train_pickle)
-                            generate_pickle(VAL_FOLDER, val_pickle)
-                        PARAMS.train_file = train_pickle
-                        PARAMS.val_file = val_pickle
-                        do_train(model)
 
-                        # empty cache
-                        torch.cuda.empty_cache()
+
+    for p1 in p_depth:
+        PARAMS.p_depth = p1
+        for p2 in p_others:
+            PARAMS.p_others = p2
+            if p1 == 0.4 and p2 == 0.05:
+                continue
+            if p1 == 0.4 and p2 == 0.1:
+                continue
+            # PARAMS.aug_mode = 'only_best_effects' + str(p_depth) + '_' + str(p_others)
+            print('Augmentation mode: ', PARAMS.aug_mode)
+            for voxel_size in voxel_sizes:
+                for height in heights:
+                    for dataset_folder in dataset_folders:
+                        PARAMS.dataset_folder = dataset_folder
+                        base_path = PARAMS.dataset_folder
+                        PARAMS.height = height
+                        PARAMS.voxel_size = voxel_size
+                        print('Voxel size: ', PARAMS.voxel_size)
+                        print('Height: ', PARAMS.height)
+                        for i in range(len(positive_distance)):
+                            # Restablecer semillas aleatorias
+                            torch.manual_seed(42)
+                            torch.cuda.manual_seed(42)
+                            np.random.seed(42)
+                            random.seed(42)
+                            torch.backends.cudnn.deterministic = True
+                            torch.backends.cudnn.benchmark = False
+                            # Load a pretrained model
+                            model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
+                            if PARAMS.weights_path is not None:
+                                model.load_state_dict(torch.load(PARAMS.weights_path))
+                                print('Model loaded from: {}'.format(PARAMS.weights_path))
+                            PARAMS.positive_distance = positive_distance[i]            
+                            PARAMS.negative_distance = negative_distance[i]
+                            print('Positive distance: ', PARAMS.positive_distance)
+                            print('Negative distance: ', PARAMS.negative_distance)
+                            train_pickle = 'training_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                            val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                            # check if the pickle files exist
+                            if not os.path.exists(base_path + TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + VAL_FOLDER + val_pickle):
+                                generate_pickle(TRAIN_FOLDER, train_pickle)
+                                generate_pickle(VAL_FOLDER, val_pickle)
+                            PARAMS.train_file = train_pickle
+                            PARAMS.val_file = val_pickle
+                            do_train(model)
+
+                            # empty cache
+                            torch.cuda.empty_cache()
+                
             
-        

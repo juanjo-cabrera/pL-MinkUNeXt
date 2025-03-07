@@ -26,7 +26,10 @@ class Config():
             self.use_rgb = config.get('use_rgb')
             self.use_gray = config.get('use_gray')
             self.use_dino_features = config.get('use_dino_features')
+            self.use_depth_features = config.get('use_depth_features')
             self.use_hue = config.get('use_hue')
+            self.use_video = config.get('use_video')
+            self.use_gradients = config.get('use_gradients')
 
             self.save_best = config.get('save_best')
             self.quantization_size = config.get('quantization_size')
@@ -60,6 +63,9 @@ class Config():
                 self.val_file = config.get('baseline').get('val_file')
                 self.train_folder = config.get('baseline').get('train_folder')
                 self.val_folder = config.get('baseline').get('val_folder')
+            
+            self.p_depth = config.get('data_augmentation').get('p_depth')
+            self.p_others = config.get('data_augmentation').get('p_others')
 
             self.print_model_info = config.get('print').get('model_info')
             self.print_model_parameters = config.get('print').get('number_of_parameters')

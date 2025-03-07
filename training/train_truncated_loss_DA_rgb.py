@@ -12,7 +12,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from config import PARAMS 
 from trainer import *
-from model.minkunext import MinkUNeXt
+from model.minkunext import MinkUNeXt, DepthMinkUNeXt
 from losses.truncated_smoothap import TruncatedSmoothAP
 import time
 from eval.pnv_evaluate import *
@@ -34,7 +34,7 @@ def do_train(model):
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_truncated_depth_features_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -190,9 +190,10 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 80:
+            if epoch % 10 == 0:
+            # if epoch % 2 == 0:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4RGB.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -290,21 +291,22 @@ if __name__ == '__main__':
     # distances from 0.3 up to 2.0
     positive_distance = [0.7]
     negative_distance = [0.7]
-    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/']
+    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/']
     PARAMS.epochs = 200
     PARAMS.scheduler_milestones = [150, 180]
-    TRAIN_FOLDER = "TrainingBaseline/"
+    TRAIN_FOLDER = "Train/"
     VAL_FOLDER = "Validation/"
     # del 32 al 38
     #aug_modes = [25]
     #aug_modes = [25]
     #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    # aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
+    aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
     aug_modes = ['only_best_effects0.5']
-    PARAMS.cuda_device = 'cuda:1'
+    PARAMS.cuda_device = 'cuda:0'
     PARAMS.use_rgb = False
     PARAMS.use_gray = False
-    PARAMS.use_video = False
+    PARAMS.use_hue = True
+    PARAMS.use_depth_features = False
     
     for aug_mode in aug_modes:
         PARAMS.aug_mode = aug_mode
@@ -326,14 +328,17 @@ if __name__ == '__main__':
                         random.seed(42)
                         torch.backends.cudnn.deterministic = True
                         torch.backends.cudnn.benchmark = False
-                        # Load a pretrained model
-                        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
-                        if PARAMS.weights_path is not None:
-                            model.load_state_dict(torch.load(PARAMS.weights_path))
-                            print('Model loaded from: {}'.format(PARAMS.weights_path))
-                        if PARAMS.use_rgb:
-                            model.conv0p1s1 = ME.MinkowskiConvolution(
-                                3, 32, kernel_size=5, dimension=3)
+                        if not PARAMS.use_depth_features:
+                            # Load a pretrained model
+                            model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
+                            if PARAMS.weights_path is not None:
+                                model.load_state_dict(torch.load(PARAMS.weights_path))
+                                print('Model loaded from: {}'.format(PARAMS.weights_path))
+                            if PARAMS.use_rgb:
+                                model.conv0p1s1 = ME.MinkowskiConvolution(
+                                    3, 32, kernel_size=5, dimension=3)
+                        else:
+                            model = DepthMinkUNeXt()
                         PARAMS.positive_distance = positive_distance[i]            
                         PARAMS.negative_distance = negative_distance[i]
                         print('Positive distance: ', PARAMS.positive_distance)

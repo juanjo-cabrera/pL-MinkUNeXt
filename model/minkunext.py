@@ -303,17 +303,36 @@ class MinkUNeXt(ResNetBase):
         return {'global': out}
 
 
-class MinkUNeXt_v2(nn.Module):
+class DepthMinkUNeXt2(nn.Module):
     def __init__(self):
         super().__init__()
+        # self.PLANES = (32, 64, 128, 256, 192, 192, 128, 128)
         model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
         model.load_state_dict(torch.load(PARAMS.weights_path))
         self.model = model
+        # downsample batch['intermediate_features'] by 2
+        self.downsample = ME.MinkowskiMaxPooling(kernel_size=2, stride=2, dimension=3)
+        self.final = ME.MinkowskiConvolution(
+            128*2,
+            512,
+            kernel_size=1,
+            bias=True,
+            dimension=3)
+        self.norm = LayerNorm(128, eps=1e-6)
+        self.gelu = ME.MinkowskiGELU()
       
     def forward(self, batch):        
-        x = ME.SparseTensor(batch['features'], coordinates=batch['coords'])
-        # skip the first layer following the original implementation
-        out = self.model.conv1p1s2(x)
+        x = ME.SparseTensor(batch['initial_features'], coordinates=batch['coords'])
+        x_intermediate = ME.SparseTensor(features=batch['intermediate_features'], coordinates=batch['coords'])
+        # x_intermediate = ME.SparseTensor(features=batch['intermediate_features'], 
+        #                                  coordinate_manager=x.coordinate_manager,  # must share the same coordinate manager
+        #                                  coordinate_map_key=x.coordinate_map_key) # For inplace, must share the same coords key
+        
+        out = self.model.conv0p1s1(x)
+        out = self.model.bn0(out)
+        out_p1 = self.model.relu(out)
+
+        out = self.model.conv1p1s2(out_p1)
         out = self.model.bn1(out)
         out = self.model.relu(out)
         out_b1p2 = self.model.block1(out)
@@ -328,8 +347,12 @@ class MinkUNeXt_v2(nn.Module):
         out = self.model.relu(out)
         out_b3p8 = self.model.block3(out)
 
-        # tensor_stride=16
+        # x_intermediate = ME.SparseTensor(features=batch['intermediate_features'], 
+        #                                  coordinate_manager=out_b3p8.coordinate_manager,  # must share the same coordinate manager
+        #                                  coordinate_map_key=out_b3p8.coordinate_map_key) # For inplace, must share the same coords key
 
+        # out_b3p8 = out_b3p8 + x_intermediate
+        # tensor_stride=16
         out = self.model.conv4p8s2(out_b3p8)
         out = self.model.bn4(out)
         out = self.model.relu(out)
@@ -341,8 +364,8 @@ class MinkUNeXt_v2(nn.Module):
         out = self.model.relu(out)
 
         out = ME.cat(out, out_b3p8)
-        out = self.model.block5(out)   
-    
+        out = self.model.block5(out)
+
         # tensor_stride=4
         out = self.model.convtr5p8s2(out)
         out = self.model.bntr5(out)
@@ -358,8 +381,110 @@ class MinkUNeXt_v2(nn.Module):
         out = self.model.relu(out)
 
         out = ME.cat(out, out_b1p2)
-        out = self.model.block7(out)
+        out = self.model.block7(out)    
 
+        x_intermediate_downsampled = self.downsample(x_intermediate)
+        x_intermediate_downsampled = ME.SparseTensor(features=x_intermediate_downsampled.F, 
+                                         coordinate_manager=out.coordinate_manager,  # must share the same coordinate manager
+                                         coordinate_map_key=out.coordinate_map_key) # For inplace, must share the same coords key
+        
+        x_intermediate_downsampled = self.norm(x_intermediate_downsampled)
+        x_intermediate_downsampled = self.gelu(x_intermediate_downsampled)
+        # cat the downsampled intermediate features with the output of the last block
+        out = ME.cat(out, x_intermediate_downsampled)
+
+
+        out = self.final(out)
+        out = self.model.GeM_pool(out)
+
+        return {'global': out}
+
+
+
+class DepthMinkUNeXt(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # self.PLANES = (32, 64, 128, 256, 192, 192, 128, 128)
+        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
+        model.load_state_dict(torch.load(PARAMS.weights_path))
+        self.model = model
+        # downsample batch['intermediate_features'] by 2
+        self.downsample = ME.MinkowskiMaxPooling(kernel_size=2, stride=2, dimension=3)
+        self.norm = LayerNorm(128, eps=1e-6)
+        self.gelu = ME.MinkowskiGELU()
+      
+    def forward(self, batch):        
+        x = ME.SparseTensor(batch['initial_features'], coordinates=batch['coords'])
+        x_intermediate = ME.SparseTensor(features=batch['intermediate_features'], coordinates=batch['coords'])
+        # x_intermediate = ME.SparseTensor(features=batch['intermediate_features'], 
+        #                                  coordinate_manager=x.coordinate_manager,  # must share the same coordinate manager
+        #                                  coordinate_map_key=x.coordinate_map_key) # For inplace, must share the same coords key
+        
+        out = self.model.conv0p1s1(x)
+        out = self.model.bn0(out)
+        out_p1 = self.model.relu(out)
+
+        out = self.model.conv1p1s2(out_p1)
+        out = self.model.bn1(out)
+        out = self.model.relu(out)
+        out_b1p2 = self.model.block1(out)
+
+        out = self.model.conv2p2s2(out_b1p2)
+        out = self.model.bn2(out)
+        out = self.model.relu(out)
+        out_b2p4 = self.model.block2(out)
+
+        out = self.model.conv3p4s2(out_b2p4)
+        out = self.model.bn3(out)
+        out = self.model.relu(out)
+        out_b3p8 = self.model.block3(out)
+
+        # x_intermediate = ME.SparseTensor(features=batch['intermediate_features'], 
+        #                                  coordinate_manager=out_b3p8.coordinate_manager,  # must share the same coordinate manager
+        #                                  coordinate_map_key=out_b3p8.coordinate_map_key) # For inplace, must share the same coords key
+
+        # out_b3p8 = out_b3p8 + x_intermediate
+        # tensor_stride=16
+        out = self.model.conv4p8s2(out_b3p8)
+        out = self.model.bn4(out)
+        out = self.model.relu(out)
+        out = self.model.block4(out)
+
+        # tensor_stride=8
+        out = self.model.convtr4p16s2(out)
+        out = self.model.bntr4(out)
+        out = self.model.relu(out)
+
+        out = ME.cat(out, out_b3p8)
+        out = self.model.block5(out)
+
+        # tensor_stride=4
+        out = self.model.convtr5p8s2(out)
+        out = self.model.bntr5(out)
+        out = self.model.relu(out)
+
+        out = ME.cat(out, out_b2p4)
+
+        out = self.model.block6(out)
+
+        # tensor_stride=2
+        out = self.model.convtr6p4s2(out)
+        out = self.model.bntr6(out)
+        out = self.model.relu(out)
+
+        out = ME.cat(out, out_b1p2)
+        out = self.model.block7(out)    
+
+        x_intermediate_downsampled = self.downsample(x_intermediate)
+        x_intermediate_downsampled = ME.SparseTensor(features=x_intermediate_downsampled.F, 
+                                         coordinate_manager=out.coordinate_manager,  # must share the same coordinate manager
+                                         coordinate_map_key=out.coordinate_map_key) # For inplace, must share the same coords key
+        
+        x_intermediate_downsampled = self.norm(x_intermediate_downsampled)
+        x_intermediate_downsampled = self.gelu(x_intermediate_downsampled)
+       
+        out = out + x_intermediate_downsampled
+        
         out = self.model.final(out)
         out = self.model.GeM_pool(out)
 

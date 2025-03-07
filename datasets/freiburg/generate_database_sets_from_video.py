@@ -93,20 +93,20 @@ def construct_query_and_database_sets(base_path, df_test, df_database, output_na
         test[key][0] = index.tolist()
     
     #print("Mean of the minimum distance: ", np.mean(distances))
-    output_to_file(database, base_path, output_name + '_evaluation_database.pickle')
-    output_to_file(test, base_path, output_name + '_evaluation_query.pickle')
+    output_to_file(database, base_path, output_name + '_evaluation_database_video.pickle')
+    output_to_file(test, base_path, output_name + '_evaluation_query_video.pickle')
 
 
 if __name__ == '__main__':
-    PARAMS.dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_A/'
-    database_folder = 'Train' 
+    PARAMS.dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/'
+    database_dir = '/media/arvc/DATOS/Juanjo/Datasets/PCD_Depth_Anything_Video_Large/TrainingBaseline' 
     print('Dataset root: {}'.format(PARAMS.dataset_folder))
     base_path = PARAMS.dataset_folder
-    database_dir = os.path.join(base_path, database_folder)
+    # database_dir = os.path.join(base_path, database_folder)
     cloudy_dir = os.path.join(base_path, 'TestCloudy')
     night_dir = os.path.join(base_path, 'TestNight')
     sunny_dir = os.path.join(base_path, 'TestSunny')
-    all_room_folders = sorted(os.listdir(os.path.join(base_path, database_folder)))
+    all_room_folders = sorted(os.listdir(database_dir))
     database_locations = get_pointcloud_positions(database_dir, all_room_folders)
     cloudy_locations = get_pointcloud_positions(cloudy_dir, all_room_folders)
     night_locations = get_pointcloud_positions(night_dir, all_room_folders)

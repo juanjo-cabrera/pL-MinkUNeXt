@@ -27,10 +27,41 @@ from datasets.dataset_utils import rgb_to_hue_pytorch
 
 
 def evaluate(model, device, log: bool = False, show_progress: bool = False):
+    if PARAMS.use_gradients:
+        print('REMINDER: using max_gradient=903.84625 for train_extended')
     # Run evaluation on all eval datasets
 
     eval_database_files = ['cloudy_evaluation_database.pickle', 'night_evaluation_database.pickle', 'sunny_evaluation_database.pickle']
     eval_query_files = ['cloudy_evaluation_query.pickle', 'night_evaluation_query.pickle', 'sunny_evaluation_query.pickle']
+
+    assert len(eval_database_files) == len(eval_query_files)
+
+    stats = {}
+    database_embeddings = []
+    database_file = eval_database_files[0]
+    p = os.path.join(PARAMS.dataset_folder, database_file)
+    with open(p, 'rb') as f:
+        database_sets = pickle.load(f)
+    #for set in tqdm.tqdm(database_sets, disable=not show_progress, desc='Computing database embeddings'):
+    database_embeddings.append(get_latent_vectors(model, database_sets, device))
+
+    for query_file in eval_query_files:
+        location_name = query_file.split('_')[0]
+        p = os.path.join(PARAMS.dataset_folder, query_file)
+        with open(p, 'rb') as f:
+            query_sets = pickle.load(f)
+
+        temp = evaluate_dataset(model, device, database_sets, database_embeddings, query_sets, log=log, show_progress=show_progress)
+        stats[location_name] = temp
+
+    return stats
+
+
+def evaluate_video(model, device, log: bool = False, show_progress: bool = False):
+    # Run evaluation on all eval datasets
+
+    eval_database_files = ['cloudy_evaluation_database_video.pickle', 'night_evaluation_database_video.pickle', 'sunny_evaluation_database_video.pickle']
+    eval_query_files = ['cloudy_evaluation_query_video.pickle', 'night_evaluation_query_video.pickle', 'sunny_evaluation_query_video.pickle']
 
     assert len(eval_database_files) == len(eval_query_files)
 
@@ -76,6 +107,7 @@ def evaluate_dataset(model, device, database_sets, database_embeddings, query_se
     return stats
 
 
+
 def get_latent_vectors(model, set, device):
     # Adapted from original PointNetVLAD code
 
@@ -119,8 +151,12 @@ def compute_embedding(model, pc, device):
         if PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
         """ 
-        if PARAMS.use_rgb or PARAMS.use_dino_features:
+        
+        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
             feats = feats.to(device)
+        elif PARAMS.use_depth_features:
+                intermediate_feats = feats.to(device)
+                initial_feats = torch.ones((coords.shape[0], 1), dtype=torch.float32).to(device)
         elif PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
             feats = feats.to(device)
@@ -130,8 +166,12 @@ def compute_embedding(model, pc, device):
         else:
             feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
             feats = feats.to(device)
-    
-        batch = {'coords': bcoords.to(device), 'features': feats}
+
+        if not PARAMS.use_depth_features:
+            batch = {'coords': bcoords.to(device), 'features': feats}
+        else:
+            batch = {'coords': bcoords.to(device), 'initial_features': initial_feats, 'intermediate_features': intermediate_feats}
+        
         #coords, _ = quantizer(pc)
         #with torch.no_grad():
         

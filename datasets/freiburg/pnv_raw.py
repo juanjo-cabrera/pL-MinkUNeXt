@@ -136,7 +136,7 @@ class PNVPointCloudLoader(PointCloudLoader):
         pcd.points = o3d.utility.Vector3dVector(points)
 
         return pcd, features
-    def voxel_downsample_with_features(self, points, features, voxel_size):
+    def voxel_downsample_with_features_copy(self, points, features, voxel_size):
         """
         Realiza un voxel downsampling en una nube de puntos y mantiene las características asociadas.
         
@@ -167,13 +167,76 @@ class PNVPointCloudLoader(PointCloudLoader):
         downsampled_features = np.array([features[idx].mean(axis=0) for idx in indices if len(idx) > 0])
 
         return downsampled_points, downsampled_features
+    
+    def voxel_downsample_with_features(self, points, features, voxel_size):
+        """
+        Realiza un voxel downsampling en una nube de puntos y mantiene las características asociadas.
+        
+        Args:
+            points (np.ndarray): Array de Nx3 con las coordenadas de los puntos.
+            features (np.ndarray): Array de NxM con las características asociadas a cada punto.
+            voxel_size (float): Tamaño del voxel para el downsampling.
 
-    def read_pc(self, file_pathname: str) -> np.ndarray:
+        Returns:
+            downsampled_points (np.ndarray): Puntos downsampled (Mx3).
+            downsampled_features (np.ndarray): Features promediadas o combinadas correspondientes (MxM).
+        """
+        # Crear la nube de puntos en Open3D
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        # Realizar el voxel downsampling usando Open3D
+        downsampled_pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
+        downsampled_points = np.asarray(downsampled_pcd.points)
+
+        # Obten el índice del punto original más cercanos a los puntos downsampled
+        kdtree = cKDTree(points)
+        _, indices = kdtree.query(downsampled_points)
+        # Obten la feature correspondiente para los puntos en cada voxel
+        downsampled_features = features[indices]      
+
+        return downsampled_points, downsampled_features
+    
+    def normalize_color(self, color, is_color_in_range_0_255=False):
+        r"""
+        Convert color in range [0, 1] to [0.5, 1.5]. If the color is in range [0,
+        255], use the argument `is_color_in_range_0_255=True`.
+
+        `color` (torch.Tensor): Nx3 color feature matrix
+        `is_color_in_range_0_255` (bool): If the color is in range [0, 255] not [0, 1], normalize the color to [0, 1].
+        """
+        if is_color_in_range_0_255:
+            color /= 255
+        color = color + 0.5
+        return color
+
+    def read_pc(self, file_pathname: str, max_gradient=903.84625)-> np.ndarray:
         # Reads the point cloud without pre-processing
         # Returns Nx3 ndarray
         file_path = os.path.join(file_pathname)
-        if not PARAMS.use_dino_features:            
+        if not PARAMS.use_dino_features and not PARAMS.use_depth_features:            
             pcd = o3d.io.read_point_cloud(file_path)
+            if PARAMS.use_gradients:
+                magnitude_pathname = file_pathname.replace('PCD_SMALL', 'MAGNITUDE')
+                magnitude_pathname = magnitude_pathname.replace('PCD_BASE', 'MAGNITUDE')
+                magnitude_pathname = magnitude_pathname.replace('PCD_LARGE', 'MAGNITUDE')
+                angle_pathname = file_pathname.replace('PCD_SMALL', 'ANGLE')
+                angle_pathname = angle_pathname.replace('PCD_BASE', 'ANGLE')
+                angle_pathname = angle_pathname.replace('PCD_LARGE', 'ANGLE')
+                # replace the extension .ply by .npy
+                magnitude_pathname = magnitude_pathname.replace('.ply', '.npy')
+                angle_pathname = angle_pathname.replace('.ply', '.npy')
+                magnitude = np.load(magnitude_pathname)
+                angle = np.load(angle_pathname)
+                magnitude = magnitude.reshape(-1, 1)
+                angle = angle.reshape(-1, 1)
+                # normalize the magnitude and angle
+                magnitude = (magnitude / max_gradient) + 0.5
+                angle = (angle / 360.0) + 0.5
+                ones = np.ones((magnitude.shape[0], 1))
+                features = np.concatenate((magnitude, angle, ones), axis=1)
+
+                pcd.colors = o3d.utility.Vector3dVector(features)
             # filter the points by height
             if PARAMS.height is not None:
                 pcd = self.filter_by_height(pcd, height=PARAMS.height)       
@@ -182,11 +245,41 @@ class PNVPointCloudLoader(PointCloudLoader):
             if PARAMS.voxel_size is not None:
                 pcd = pcd.voxel_down_sample(voxel_size=PARAMS.voxel_size)
 
-            
             points, colors = self.global_normalize(pcd, max_distance=PARAMS.max_distance)
+            # normalize the color
+            # colors = self.normalize_color(colors)
             pc = {}
             pc['points'] = points
             pc['colors'] = colors
+
+        elif PARAMS.use_depth_features:   
+            pcd = o3d.io.read_point_cloud(file_path)     
+            # check ig filepathname contains the word '_small' or '_base' remove it
+            features_pathname = file_pathname.replace('_small', '')
+            features_pathname = features_pathname.replace('_base', '')
+            features_pathname = features_pathname.replace('PCD_non_metric_Friburgo', 'Friburgo_A_DepthAnything_large_output_conv1_features')
+            features_pathname = features_pathname.replace('.ply', '.npy')
+            features = np.load(features_pathname, mmap_mode='r')
+            features = features.reshape(-1, features.shape[0])
+            # filter the points by height
+            # import time 
+            # start = time.time()
+            if PARAMS.height is not None:
+                points, features = self.filter_by_height_features(pcd, features, height=PARAMS.height)    
+            # end = time.time()
+            # print("Time to filter by height: ", end-start)   
+            # show pointcloud
+            #o3d.visualization.draw_geometries([pcd])
+            if PARAMS.voxel_size is not None:
+                # start = time.time()
+                points, features = self.voxel_downsample_with_features(points, features, voxel_size=PARAMS.voxel_size)        
+                # end = time.time()
+                # print("Time to voxel downsample: ", end-start)
+                points = self.global_normalize_without_color(points, max_distance=PARAMS.max_distance)
+                pc = {}
+                pc['points'] = points
+                pc['colors'] = features
+             
         else:
             pcd, features = self.read_pointcloud_with_features(file_pathname)
     
@@ -201,5 +294,40 @@ class PNVPointCloudLoader(PointCloudLoader):
                 pc = {}
                 pc['points'] = points
                 pc['colors'] = features
+    
+        return pc
+    
+    def read_pc_features(self, file_pathname: str, features) -> np.ndarray:
+        # Reads the point cloud without pre-processing
+        # Returns Nx3 ndarray
+        file_path = os.path.join(file_pathname)
+    
+        pcd = o3d.io.read_point_cloud(file_path)     
+        # check ig filepathname contains the word '_small' or '_base' remove it
+        # features_pathname = file_pathname.replace('_small', '')
+        # features_pathname = features_pathname.replace('_base', '')
+        # features_pathname = features_pathname.replace('PCD_non_metric_Friburgo', 'Friburgo_A_DepthAnything_large_output_conv1_features')
+        # features_pathname = features_pathname.replace('.ply', '.npy')
+        # features = np.load(features_pathname, mmap_mode='r')
+        features = features.reshape(-1, features.shape[0])
+        # filter the points by height
+        # import time 
+        # start = time.time()
+        if PARAMS.height is not None:
+            points, features = self.filter_by_height_features(pcd, features, height=PARAMS.height)  
+        # end = time.time()
+        # print("Time to filter by height: ", end-start)     
+        # show pointcloud
+        #o3d.visualization.draw_geometries([pcd])
+        if PARAMS.voxel_size is not None:
+            # start = time.time()
+            points, features = self.voxel_downsample_with_features(points, features, voxel_size=PARAMS.voxel_size)  
+            # end = time.time()
+            # print("Time to voxel downsample: ", end-start)      
+            points = self.global_normalize_without_color(points, max_distance=PARAMS.max_distance)
+        
+        pc = {}
+        pc['points'] = points
+        pc['colors'] = features    
     
         return pc

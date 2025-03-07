@@ -47,7 +47,7 @@ def make_datasets(validation: bool = True):
 
 def rgb_to_hue_pytorch(rgb_tensor):
     # Normalizar los valores RGB al rango [0, 1]
-    rgb_tensor = rgb_tensor / 255.0
+    # rgb_tensor = rgb_tensor / 255.0 ya está normalizado
 
     # Separar los canales RGB
     r = rgb_tensor[:, 0]
@@ -71,7 +71,8 @@ def rgb_to_hue_pytorch(rgb_tensor):
     hue = torch.where(b <= g, theta_degrees, 360 - theta_degrees)
     # Pasar a formato [N, 1]
     hue = hue.unsqueeze(1)
-
+    # normalizar a [0.5, 1.5]
+    hue = (hue / 360.0) + 0.5
     return hue
 
 
@@ -86,6 +87,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
 
         points = [e['points'] for e in clouds]
         colors = [e['colors'] for e in clouds]
+
         # lengths of each cloud
         lens = [len(cloud) for cloud in points]
         points = torch.cat(points, dim=0)       # Produces (batch_size, n_points, 3) tensor
@@ -103,9 +105,6 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
         positives_mask = torch.tensor(positives_mask)
         negatives_mask = torch.tensor(negatives_mask)
 
-        
-
-
         coords = []
         feats = []
         for point, color in zip(points, colors):
@@ -115,8 +114,15 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
 
         if batch_split_size is None or batch_split_size == 0:
             coords = ME.utils.batched_coordinates(coords)
-            if PARAMS.use_rgb or PARAMS.use_dino_features:
+            if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
                 feats = torch.cat(feats, dim=0)
+            elif PARAMS.use_depth_features:
+                intermediate_feats = torch.cat(feats, dim=0)
+                initial_feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
+                feats = {}             
+                feats['initial'] = initial_feats
+                feats['intermediate'] = intermediate_feats
+
             elif PARAMS.use_gray:
                 feats = torch.cat(feats, dim=0)
                 feats = torch.mean(feats, dim=1, keepdim=True)
@@ -126,7 +132,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
             else:
                 feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
             # Assign a dummy feature equal to 1 to each point
-            # Coords must be on CPU, features can be on GPU - see MinkowskiEngine documentation
+            # Coords must be on CPU, features can be on GPU - see MinkowskiEngine documentation          
             pointcloud_batch = {'coords': coords, 'features': feats}
         else:
              # Split the batch into chunks
@@ -135,8 +141,12 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
                 temp_coords = coords[i:i + batch_split_size]
                 temp_feats = feats[i:i + batch_split_size]
                 c = ME.utils.batched_coordinates(temp_coords)
-                if PARAMS.use_rgb or PARAMS.use_dino_features:
+                if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
                     f = torch.cat(temp_feats, dim=0)
+                elif PARAMS.use_depth_features:
+                    intermediate_feats = torch.cat(temp_feats, dim=0)
+                    initial_feats = torch.ones((c.shape[0], 1), dtype=torch.float32)
+                    # f = {'initial': initial_feats, 'intermediate': f}
                 elif PARAMS.use_gray:
                     f = torch.cat(temp_feats, dim=0)
                     f = torch.mean(f, dim=1, keepdim=True)
@@ -145,7 +155,10 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
                     f = rgb_to_hue_pytorch(f)
                 else:
                     f = torch.ones((c.shape[0], 1), dtype=torch.float32)
-                pointcloud_minibatch = {'coords': c, 'features': f}
+                if not PARAMS.use_depth_features:
+                    pointcloud_minibatch = {'coords': c, 'features': f}
+                else:
+                    pointcloud_minibatch = {'coords': c, 'initial_features': initial_feats, 'intermediate_features': intermediate_feats}
                 pointcloud_batch.append(pointcloud_minibatch)
 
         return pointcloud_batch, positives_mask, negatives_mask

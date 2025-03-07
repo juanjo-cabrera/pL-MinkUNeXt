@@ -110,9 +110,10 @@ def generate_pickle(run_folder, pickle_filename):
     construct_query_dict(df_locations, base_path + run_folder, pickle_filename, ind_nn_r=PARAMS.positive_distance, ind_r_r=PARAMS.negative_distance)
 
 if __name__ == '__main__':
+    PARAMS.train_folder = 'TrainingBaseline2/'
     TRAIN_FOLDER = PARAMS.train_folder
     VAL_FOLDER = PARAMS.val_folder
-    generate_pickle(TRAIN_FOLDER, "training_queries_baseline.pickle")
+    generate_pickle(TRAIN_FOLDER, "training_queries_baseline2.pickle")
     generate_pickle(VAL_FOLDER, "validation_queries_baseline.pickle")
 
 

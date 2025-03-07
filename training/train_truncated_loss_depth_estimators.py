@@ -284,7 +284,7 @@ if __name__ == '__main__':
     # distances from 0.3 up to 2.0
     positive_distance = [0.7]
     negative_distance = [0.7]
-    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_Friburgo/']
+    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_DepthPro/']
     PARAMS.epochs = 80
     TRAIN_FOLDER = "TrainingBaseline/"
     VAL_FOLDER = "Validation/"

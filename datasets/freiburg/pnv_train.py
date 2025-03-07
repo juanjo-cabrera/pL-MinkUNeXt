@@ -9,6 +9,16 @@ import random
 from datasets.augmentation import *
 from datasets.base_datasets import TrainingDataset
 from datasets.freiburg.pnv_raw import PNVPointCloudLoader
+import os
+import sys
+# Get the current script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory by going one level up
+parent_dir = os.path.dirname(current_dir)
+parent_dir = os.path.dirname(parent_dir)
+# Add the parent directory to sys.path
+sys.path.append(parent_dir)
+from config import PARAMS 
 
 
 class PNVTrainingDataset(TrainingDataset):
@@ -154,8 +164,12 @@ class TrainTransform:
             self.transform = transforms.Compose(t)
 
         # best all effects (remove random points, random translation xy, remove random block, move random block 2, random scale xy 2)
-        elif self.aug_mode == 'only_best_effects' or self.aug_mode == 'only_best_effects0.5':
+        elif self.aug_mode == 'only_best_effects0.5':
             t = [RemoveRandomPoints(r=(0.0, 0.4), p=0.1), RandomTranslationB(max_delta=0.05, p=0.1), RemoveRandomBlock(p=0.1, scale=(0.02, 0.5), ratio=(0.3, 3.3)), MoveRandomBlock2(p=0.15), RandomScaleXY(min=0.8, max=1.2, p=0.1), RandomRotation_mod(max_theta=180, p=0.05, axis=np.array([0, 0, 1]))]
+            self.transform = transforms.Compose(t)
+
+        elif self.aug_mode == 'only_best_effects':
+            t = [RemoveRandomPoints(r=(0.0, 0.4), p=PARAMS.p_others), RandomTranslationB(max_delta=0.05, p=PARAMS.p_others), RemoveRandomBlock(p=PARAMS.p_others, scale=(0.02, 0.5), ratio=(0.3, 3.3)), MoveRandomBlock2(p=PARAMS.p_others), RandomScaleXY(min=0.8, max=1.2, p=PARAMS.p_others), RandomRotation_mod(max_theta=180, p=PARAMS.p_others, axis=np.array([0, 0, 1]))]
             self.transform = transforms.Compose(t)
 
         elif self.aug_mode == 'best_effects1': # remove random block, move random block 2, random scale xy 2

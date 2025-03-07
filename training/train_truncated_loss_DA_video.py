@@ -34,7 +34,7 @@ def do_train(model):
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_truncated_VIDEO_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -93,13 +93,13 @@ def do_train(model):
 
     # Create a dictionary with the parameters
     params_dict = vars(PARAMS)
-    # Initialize wandb
-    if PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_base/':
-        wandb.init(project='IndoorMinkUNeXt_base_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
-    elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
-        wandb.init(project='IndoorMinkUNeXt_small_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
-    else:
-        wandb.init(project='IndoorMinkUNeXt_experiment_truncated', config=params_dict, name= 'aug' + str(PARAMS.aug_mode) +'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+    # # Initialize wandb
+    # if PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_base/':
+    #     wandb.init(project='IndoorMinkUNeXt_base_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+    # elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
+    #     wandb.init(project='IndoorMinkUNeXt_small_experiment_truncated', config=params_dict, name='pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
+    # else:
+    #     wandb.init(project='IndoorMinkUNeXt_experiment_truncated', config=params_dict, name= 'aug' + str(PARAMS.aug_mode) +'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height))
 
     ###########################################################################
     #
@@ -190,7 +190,7 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 and epoch >= 80:
+            if epoch % 10 == 0 and epoch >= 80 or epoch == 0:
                 # write results to a .txt withou deleting previous results
                 file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
                 model.eval()
@@ -198,7 +198,7 @@ def do_train(model):
                 print('Model evaluation epoch: {}'.format(epoch))
                 
                 # Evaluate the model
-                stats_validation = evaluate(model, device, log=False, show_progress=True)
+                stats_validation = evaluate_video(model, device, log=False, show_progress=True)
                 mae_cloudy, mae_night, mae_sunny = stats_validation['cloudy']['mean_error'], stats_validation['night']['mean_error'], stats_validation['sunny']['mean_error']
                 recall_cloudy, recall_night, recall_sunny = stats_validation['cloudy']['ave_recall'][0], stats_validation['night']['ave_recall'][0], stats_validation['sunny']['ave_recall'][0]
                 one_percent_recall_cloudy, one_percent_recall_night, one_percent_recall_sunny = stats_validation['cloudy']['ave_one_percent_recall'], stats_validation['night']['ave_one_percent_recall'], stats_validation['sunny']['ave_one_percent_recall']
@@ -227,13 +227,13 @@ def do_train(model):
                 metrics['val']['recall_night'] = recall_night
                 metrics['val']['recall_sunny'] = recall_sunny
                 print_eval_stats(stats_validation)
-                wandb.log(metrics['val'])
+                # wandb.log(metrics['val'])
 
                 model.train(True)
 
 
 
-        wandb.log(metrics)
+        # wandb.log(metrics)
 
         if scheduler is not None:
             scheduler.step()
@@ -251,12 +251,14 @@ def do_train(model):
     
     print('Training completed.')
 
-    # Finaliza la sesión de wandb
-    wandb.finish()
+    
     # Save final model weights
     final_model_path = model_pathname + '_final.pth'
     print(f"Saving weights: {final_model_path}")
     torch.save(model.state_dict(), final_model_path)
+
+    # Finaliza la sesión de wandb
+    # wandb.finish()
        
     
 
@@ -299,12 +301,12 @@ if __name__ == '__main__':
     #aug_modes = [25]
     #aug_modes = [25]
     #aug_modes = ['remove_block', 'jitter', 'remove_points', 'translation', 'move_block', 'scale', 'all_effects1']
-    # aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
+    aug_modes = ['3depths0.7', '3depths0.8', '3depths0.9']
     aug_modes = ['only_best_effects0.5']
-    PARAMS.cuda_device = 'cuda:1'
+    PARAMS.cuda_device = 'cuda:0'
     PARAMS.use_rgb = False
     PARAMS.use_gray = False
-    PARAMS.use_video = False
+    PARAMS.use_video = True
     
     for aug_mode in aug_modes:
         PARAMS.aug_mode = aug_mode

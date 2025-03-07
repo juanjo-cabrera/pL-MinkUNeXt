@@ -1,6 +1,6 @@
 import numpy as np
 # Ruta al archivo .txt
-file_path = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
+file_path = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_depth_estimator_results_v4.txt'
 
 # Leer el archivo línea por línea
 lines = []
@@ -19,7 +19,7 @@ with open(file_path, 'r') as file:
 # Calcular la media de cada fila
 
 # Crea un nuevo archivo con los valores originales y afdemás las medias de las tres últimas columnas
-with open('/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4_mean.txt', 'w') as file:
+with open('/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_depth_estimator_results_v4_mean.txt', 'w') as file:
     
     for line, mean in zip(lines, means):
         file.write(f'{line.strip()}, {mean}\n')

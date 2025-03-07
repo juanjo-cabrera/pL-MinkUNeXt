@@ -35,7 +35,11 @@ class TruncatedSmoothAP:
         s_positives = s_qz.detach().clone()
         s_positives.masked_fill_(torch.logical_not(positives_mask), np.NINF)
         #closest_positives_ndx = torch.argmax(s_positives, dim=1).view(-1, 1)  # Indices of closests positives for each query
-        closest_positives_ndx = torch.topk(s_positives, k=self.positives_per_query, dim=1, largest=True, sorted=True)[1]
+        try:
+            closest_positives_ndx = torch.topk(s_positives, k=self.positives_per_query, dim=1, largest=True, sorted=True)[1]
+        except:
+            closest_positives_ndx = torch.topk(s_positives, k=4, dim=1, largest=True, sorted=True)[1]
+
         # closest_positives_ndx is (batch_size, positives_per_query)  with positives_per_query closest positives
         # per each batch element
 

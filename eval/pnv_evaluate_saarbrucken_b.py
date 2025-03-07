@@ -22,7 +22,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import PARAMS 
 from datasets.quantization import quantizer
-from model.minkunext import model
+from model.minkunext import MinkUNeXt
 from datasets.dataset_utils import rgb_to_hue_pytorch
 
 
@@ -119,7 +119,7 @@ def compute_embedding(model, pc, device):
         if PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
         """ 
-        if PARAMS.use_rgb or PARAMS.use_dino_features:
+        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
             feats = feats.to(device)
         elif PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
@@ -228,7 +228,7 @@ def pnv_write_eval_stats(file_name, prefix, stats):
     ave_1p_recall_l = []
     ave_recall_l = []
     # Print results on the final model
-    with open(file_name, "w") as f:
+    with open(file_name, "a") as f:
         for ds in stats:
             ave_1p_recall = stats[ds]['ave_one_percent_recall']
             ave_1p_recall_l.append(ave_1p_recall)
@@ -244,8 +244,8 @@ def pnv_write_eval_stats(file_name, prefix, stats):
 
 if __name__ == "__main__":
 
-    PARAMS.cuda_device = 'cuda:1'
-    PARAMS.dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_SAARBRUCKEN_B'
+    PARAMS.cuda_device = 'cuda:0'
+    PARAMS.dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_B/'
   
     if torch.cuda.is_available():
         device = PARAMS.cuda_device
@@ -257,8 +257,23 @@ if __name__ == "__main__":
     torch.cuda.set_device(device)
     
     
-    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250212_1512_final.pth'
-    
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250217_0953_best.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_truncated_hue_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250220_1604_best_test.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query12batch_size256_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250301_0106_best.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250302_0339_best_test.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250302_1046_best_test.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query20batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250302_1757_best_test.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query12batch_size256_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250301_0106_best_test.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query24batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250303_0112_best_test.pth'
+    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250306_2115_best_test.pth'
+    PARAMS.use_gradients =  True
+    # Load a pretrained model                           
+              
+    if PARAMS.use_rgb or PARAMS.use_gradients:
+        model = MinkUNeXt(in_channels=3, out_channels=512, D=3)
+    else: 
+        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
+
     model.load_state_dict(torch.load(PARAMS.weights_path, map_location=device))
 
     model.to(device)
@@ -271,6 +286,6 @@ if __name__ == "__main__":
     model_name = os.path.split(PARAMS.weights_path)[1]
     model_name = os.path.splitext(model_name)[0]
     prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUnext/training/results_saarbrucken_b.txt", prefix, stats)
+    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt", prefix, stats)
 
 
