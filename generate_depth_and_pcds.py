@@ -327,7 +327,7 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
 
 
     #encoder = 'vits' # or 'vits', 'vitb', 'vitg'
-    encoder = 'vits'  # or 'vits', 'vitb'
+    encoder = 'vitl'  # or 'vits', 'vitb'
     model = DepthAnythingV2(encoder=encoder, features=model_configs[encoder]['features'], out_channels=model_configs[encoder]['out_channels'])
     print(model)
 
@@ -377,8 +377,8 @@ if __name__ == "__main__":
     for environment in environments:
         # Directorio fuente y destino
         src_color_directory  = '/media/arvc/DATOS/Marcos/DATASETS/COLD/' + environment + '/'
-        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_SMALL/' + environment + '/'
-        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_SMALL/' + environment + '/'
+        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/' + environment + '/'
+        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_LARGE/' + environment + '/'
         exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'TestCloudy', 'TestSunny', 'TestNight', 'Train2', 'Validation']
 
         copy_structure_and_process_images(src_color_directory, depth_directory, pcd_directory, exclude_directory_names)

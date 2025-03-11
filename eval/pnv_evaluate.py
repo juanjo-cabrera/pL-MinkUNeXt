@@ -152,7 +152,7 @@ def compute_embedding(model, pc, device):
             feats = torch.mean(feats, dim=1, keepdim=True)
         """ 
         
-        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
+        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
             feats = feats.to(device)
         elif PARAMS.use_depth_features:
                 intermediate_feats = feats.to(device)

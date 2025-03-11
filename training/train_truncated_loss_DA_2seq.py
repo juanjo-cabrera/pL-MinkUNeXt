@@ -22,29 +22,6 @@ def get_datetime():
     return time.strftime("%Y%m%d_%H%M")
 
 def do_train(model):
-    # write on filename the input features used
-    file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_train2_gradients.txt'
-    with open(file_name, "a") as f:
-        if PARAMS.use_magnitude:
-            f.write('Feature: Magnitude\n')
-        if PARAMS.use_magnitude_hue:
-            f.write('Feature: Magnitude + Hue\n')
-        if PARAMS.use_magnitude_ones:
-            f.write('Feature: Magnitude + Ones\n')
-        if PARAMS.use_angle:
-            f.write('Feature: Angle\n')
-        if PARAMS.use_anglexy:
-            f.write('Feature: AngleXY\n')
-        if PARAMS.use_anglexy_hue:
-            f.write('Feature: AngleXY + Hue\n')
-        if PARAMS.use_anglexy_ones:
-            f.write('Feature: AngleXY + Ones\n')
-        if PARAMS.use_magnitude_anglexy_hue:
-            f.write('Feature: Magnitude + AngleXY + Hue\n')
-        if PARAMS.use_magnitude_anglexy_hue_ones:
-            f.write('Feature: Magnitude + AngleXY + Hue + Ones\n')
-        
-        print('Results saved to: ', file_name)
     # Create model class
     loss_fn = TruncatedSmoothAP(tau1=PARAMS.tau1, similarity=PARAMS.similarity,
                                     positives_per_query=PARAMS.positives_per_query)
@@ -57,7 +34,7 @@ def do_train(model):
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_gradients_pos_per_query'+ str(PARAMS.positives_per_query) + 'batch_size' + str(PARAMS.batch_size) + '_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_2seq_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -155,7 +132,6 @@ def do_train(model):
             while True:
                 count_batches += 1
                 batch_stats = {}
-                # print(f"Epoch {epoch}, {phase} phase, batch {count_batches}")
                 if PARAMS.debug and count_batches > 2:
                     break
 
@@ -214,9 +190,9 @@ def do_train(model):
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch % 10 == 0 or epoch == 1:
+            if epoch % 10 == 0:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_train2_gradients.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_truncated_results_v4.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -281,43 +257,6 @@ def do_train(model):
     final_model_path = model_pathname + '_final.pth'
     print(f"Saving weights: {final_model_path}")
     torch.save(model.state_dict(), final_model_path)
-
-    # evaluate the best test model on the test set
-    model.load_state_dict(torch.load(best_test_model_path))
-
-    from eval.pnv_evaluate_friburgo_b import evaluate_fb
-    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_B'
-    stats = evaluate_fb(model, device, log=False, show_progress=True)
-    print_eval_stats(stats)
-
-    # Save results to the text file
-    model_name = os.path.split(best_test_model_path)[1]
-    model_name = os.path.splitext(model_name)[0]
-    prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt", prefix, stats)
-
-    from eval.pnv_evaluate_saarbrucken_a import evaluate_sa
-    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_A'
-    stats = evaluate_sa(model, device, log=False, show_progress=True)
-    print_eval_stats(stats)
-
-    # Save results to the text file
-    model_name = os.path.split(best_test_model_path)[1]
-    model_name = os.path.splitext(model_name)[0]
-    prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt", prefix, stats)
-
-    from eval.pnv_evaluate_saarbrucken_b import evaluate_sb
-    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_B'
-    stats = evaluate_sb(model, device, log=False, show_progress=True)
-    print_eval_stats(stats)
-
-    # Save results to the text file
-    model_name = os.path.split(best_test_model_path)[1]
-    model_name = os.path.splitext(model_name)[0]
-    prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt", prefix, stats)
-
        
     
 
@@ -356,6 +295,10 @@ if __name__ == '__main__':
     PARAMS.scheduler_milestones = [150, 180]
     PARAMS.TRAIN_FOLDER = "Train_extended/"
     PARAMS.VAL_FOLDER = "Validation/"
+    PARAMS.positives_per_query = 16
+    PARAMS.batch_size = 512
+    PARAMS.batch_split_size = 32
+    PARAMS.val_batch_size = 32
     # del 32 al 38
     #aug_modes = [25]
     #aug_modes = [25]
@@ -366,77 +309,50 @@ if __name__ == '__main__':
     PARAMS.use_rgb = False
     PARAMS.use_gray = False
     PARAMS.use_video = False
-    PARAMS.use_gradients = True
-    positives_per_query_list = [12]
-    batch_size = [512]
-    # list for loop over the different input features PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
-    use_features = ['use_magnitude_anglexy', 'use_anglexy', 'use_anglexy_hue', 'use_anglexy_ones', 'use_magnitude_anglexy_hue', 'use_magnitude_anglexy_hue_ones']
+    
+    for aug_mode in aug_modes:
+        PARAMS.aug_mode = aug_mode
+        print('Augmentation mode: ', PARAMS.aug_mode)
+        for voxel_size in voxel_sizes:
+            for height in heights:
+                for dataset_folder in dataset_folders:
+                    PARAMS.dataset_folder = dataset_folder
+                    base_path = PARAMS.dataset_folder
+                    PARAMS.height = height
+                    PARAMS.voxel_size = voxel_size
+                    print('Voxel size: ', PARAMS.voxel_size)
+                    print('Height: ', PARAMS.height)
+                    for i in range(len(positive_distance)):
+                        # Restablecer semillas aleatorias
+                        torch.manual_seed(42)
+                        torch.cuda.manual_seed(42)
+                        np.random.seed(42)
+                        random.seed(42)
+                        torch.backends.cudnn.deterministic = True
+                        torch.backends.cudnn.benchmark = False
+                        # Load a pretrained model
+                        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
+                        if PARAMS.weights_path is not None:
+                            model.load_state_dict(torch.load(PARAMS.weights_path))
+                            print('Model loaded from: {}'.format(PARAMS.weights_path))
+                        if PARAMS.use_rgb:
+                            model.conv0p1s1 = ME.MinkowskiConvolution(
+                                3, 32, kernel_size=5, dimension=3)
+                        PARAMS.positive_distance = positive_distance[i]            
+                        PARAMS.negative_distance = negative_distance[i]
+                        print('Positive distance: ', PARAMS.positive_distance)
+                        print('Negative distance: ', PARAMS.negative_distance)
+                        train_pickle = 'training_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                        val_pickle = 'validation_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                        # check if the pickle files exist
+                      
+                        generate_pickle_two_sequences(PARAMS.TRAIN_FOLDER, train_pickle)
+                        generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
+                        PARAMS.train_file = train_pickle
+                        PARAMS.val_file = val_pickle
+                        do_train(model)
 
-    for feature in use_features:
-        setattr(PARAMS, feature, True)
-        print('Feature: ', feature)
-        # set the other features to False
-        for f in use_features:
-            if f != feature:
-                setattr(PARAMS, f, False)
-        for bs in batch_size:
-            PARAMS.batch_size = bs
-            print('Batch size: ', PARAMS.batch_size)
-            for positives_per_query in positives_per_query_list:
-                PARAMS.positives_per_query = positives_per_query
-                print('Positives per query: ', PARAMS.positives_per_query)
-                for aug_mode in aug_modes:
-                    PARAMS.aug_mode = aug_mode
-                    print('Augmentation mode: ', PARAMS.aug_mode)
-                    for voxel_size in voxel_sizes:
-                        for height in heights:
-                            for dataset_folder in dataset_folders:
-                                PARAMS.dataset_folder = dataset_folder
-                                base_path = PARAMS.dataset_folder
-                                PARAMS.height = height
-                                PARAMS.voxel_size = voxel_size
-                                print('Voxel size: ', PARAMS.voxel_size)
-                                print('Height: ', PARAMS.height)
-                                for i in range(len(positive_distance)):
-                                    # Restablecer semillas aleatorias
-                                    torch.manual_seed(42)
-                                    torch.cuda.manual_seed(42)
-                                    np.random.seed(42)
-                                    random.seed(42)
-                                    torch.backends.cudnn.deterministic = True
-                                    torch.backends.cudnn.benchmark = False
-                                    # Load a pretrained model
-                                    model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
-                                    if PARAMS.weights_path is not None:
-                                        model.load_state_dict(torch.load(PARAMS.weights_path))
-                                        print('Model loaded from: {}'.format(PARAMS.weights_path))
-                                    if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:
-                                        model.conv0p1s1 = ME.MinkowskiConvolution(
-                                            2, 32, kernel_size=5, dimension=3)
-                                    elif PARAMS.use_rgb or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy:
-                                        model.conv0p1s1 = ME.MinkowskiConvolution(
-                                            3, 32, kernel_size=5, dimension=3)
-                                    elif PARAMS.use_magnitude_anglexy_hue:
-                                        model.conv0p1s1 = ME.MinkowskiConvolution(
-                                            4, 32, kernel_size=5, dimension=3)
-                                    elif PARAMS.use_magnitude_anglexy_hue_ones:
-                                        model.conv0p1s1 = ME.MinkowskiConvolution(
-                                            5, 32, kernel_size=5, dimension=3)
-                                    PARAMS.positive_distance = positive_distance[i]            
-                                    PARAMS.negative_distance = negative_distance[i]
-                                    print('Positive distance: ', PARAMS.positive_distance)
-                                    print('Negative distance: ', PARAMS.negative_distance)
-                                    train_pickle = 'training_queries_extended_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-                                    val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-                                    # check if the pickle files exist
-                                    # if not os.path.exists(base_path + PARAMS.TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + PARAMS.VAL_FOLDER + val_pickle):
-                                    generate_pickle(PARAMS.TRAIN_FOLDER, train_pickle)
-                                    generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
-                                    PARAMS.train_file = train_pickle
-                                    PARAMS.val_file = val_pickle
-                                    do_train(model)
-
-                                    # empty cache
-                                    torch.cuda.empty_cache()
-                        
-                    
+                        # empty cache
+                        torch.cuda.empty_cache()
+            
+        

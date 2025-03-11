@@ -11,3 +11,10 @@ baseline, Indoor_MinkUNeXt_pos_per_query12batch_size512_truncated_augonly_best_e
 baseline, Indoor_MinkUNeXt_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250305_1101_best_test, 97.70, 74.67, 96.44, 72.94, 97.07, 73.80
 baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250306_0144_best_test, 98.85, 76.09, 81.05, 54.03, 89.95, 65.06
 baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250306_2115_best_test, 98.44, 76.97, 91.65, 63.56, 95.04, 70.26
+baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250307_1306_best_test, 98.11, 76.64, 89.54, 64.26, 93.83, 70.45
+Feature: Magnitude + Hue
+baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250309_1044_best_test, 98.34, 75.45, 92.59, 65.95, 95.47, 70.70
+Feature: Magnitude + Ones
+baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250309_2005_best_test, 98.85, 76.64, 92.31, 65.01, 95.58, 70.83
+Feature: Angle
+baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250310_0525_best_test, 98.02, 75.63, 95.83, 70.92, 96.92, 73.28

@@ -12,6 +12,7 @@ class Config():
             print(config)
 
             self.dataset_folder= config.get('dataset_folder')
+            self.test_folder = config.get('test_folder')
             self.map_dir = self.dataset_folder + 'TrainingBaseline/'
             self.testing_cloudy_dir = self.dataset_folder + 'TestCloudy/'
             self.testing_night_dir = self.dataset_folder + 'TestNight/'
@@ -30,7 +31,27 @@ class Config():
             self.use_hue = config.get('use_hue')
             self.use_video = config.get('use_video')
             self.use_gradients = config.get('use_gradients')
-
+            # use_magnitude: False
+            # use_magnitude_hue: False
+            # use_magnitude_ones: False
+            # use_angle: False
+            # use_anglexy: False
+            # use_anglexy_hue: False
+            # use_anglexy_ones: False
+            # use_magnitude_anglexy_hue: False
+            # use_magnitude_anglexy_hue_ones: False
+            # add the following lines to the config file
+            self.use_magnitude = config.get('use_magnitude')
+            self.use_magnitude_hue = config.get('use_magnitude_hue')
+            self.use_magnitude_ones = config.get('use_magnitude_ones')
+            self.use_angle = config.get('use_angle')
+            self.use_anglexy = config.get('use_anglexy')
+            self.use_anglexy_hue = config.get('use_anglexy_hue')
+            self.use_anglexy_ones = config.get('use_anglexy_ones')
+            self.use_magnitude_anglexy = config.get('use_magnitude_anglexy')
+            self.use_magnitude_anglexy_hue = config.get('use_magnitude_anglexy_hue')
+            self.use_magnitude_anglexy_hue_ones = config.get('use_magnitude_anglexy_hue_ones')
+            
             self.save_best = config.get('save_best')
             self.quantization_size = config.get('quantization_size')
             self.num_workers = config.get('num_workers')

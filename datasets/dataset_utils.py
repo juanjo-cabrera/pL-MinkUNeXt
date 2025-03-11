@@ -141,7 +141,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
                 temp_coords = coords[i:i + batch_split_size]
                 temp_feats = feats[i:i + batch_split_size]
                 c = ME.utils.batched_coordinates(temp_coords)
-                if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
+                if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
                     f = torch.cat(temp_feats, dim=0)
                 elif PARAMS.use_depth_features:
                     intermediate_feats = torch.cat(temp_feats, dim=0)

@@ -52,6 +52,38 @@ def construct_query_dict(df_centroids, base_path, filename, ind_nn_r, ind_r_r=50
 
     print("Done ", filename)
 
+def construct_query_dict_2seq(df_centroids, base_path, filename, ind_nn_r, ind_r_r=50):
+    # ind_nn_r: threshold for positive examples
+    # ind_r_r: threshold for negative examples
+    # Baseline dataset parameters in the original PointNetVLAD code: ind_nn_r=10, ind_r=50
+    # Refined dataset parameters in the original PointNetVLAD code: ind_nn_r=12.5, ind_r=50
+    tree = KDTree(df_centroids[['x', 'y']])
+    ind_nn = tree.query_radius(df_centroids[['x', 'y']], r=ind_nn_r)
+    ind_r = tree.query_radius(df_centroids[['x', 'y']], r=ind_r_r)
+    queries = {}
+    for anchor_ndx in range(len(ind_nn)):
+        anchor_pos = np.array(df_centroids.iloc[anchor_ndx][['x', 'y']])
+        query = df_centroids.iloc[anchor_ndx]["file"]
+        timestamp = df_centroids.iloc[anchor_ndx]["timestamp"]
+
+        positives = ind_nn[anchor_ndx]
+        non_negatives = ind_r[anchor_ndx]
+
+        positives = positives[positives != anchor_ndx]
+        # Sort ascending order
+        positives = np.sort(positives)
+        non_negatives = np.sort(non_negatives)
+
+        # Tuple(id: int, timestamp: int, rel_scan_filepath: str, positives: List[int], non_negatives: List[int])
+        queries[anchor_ndx] = TrainingTuple(id=anchor_ndx, timestamp=timestamp, rel_scan_filepath=query,
+                                            positives=positives, non_negatives=non_negatives, position=anchor_pos)
+
+    file_path = os.path.join(base_path, filename)
+    with open(file_path, 'wb') as handle:
+        pickle.dump(queries, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    print("Done ", filename)
+
 
 def get_pointcloud_positions(folder_dir, folders):
     # given a folder, return the positions of the pointclouds
@@ -94,6 +126,47 @@ def get_pointcloud_positions(folder_dir, folders):
     df_locations = pd.DataFrame({ 'file': files_names, 'timestamp': timestamps, 'x': x_positions, 'y': y_positions, 'orientation': orientations})
     return df_locations
 
+def get_pointcloud_positions_full_path(folder_dir, folders):
+    # given a folder, return the positions of the pointclouds
+    # each pointcloud file name is the timestamp, the 'x', 'y' and 'a' orientation, for example file_pathname = t1152904768.768371_x-8.640943_y2.861793_a-0.209387.ply
+    timestamps = []
+    x_positions = []
+    y_positions = []
+    orientations = []
+    files_names = []
+    for folder in folders:
+        room_dir = os.path.join(folder_dir, folder)
+        # check if the folder is a directory    
+        if not os.path.isdir(room_dir):
+            continue
+        for file in os.listdir(room_dir):
+            if file.endswith(".ply"):        
+                files_names.append(folder_dir + folder + '/' +file)
+                # quitar la extension del archivo
+                file = file[:-4]
+                timestamp_index = file.index('t')
+                x_index = file.index('_x')
+                y_index = file.index('_y')
+                a_index = file.index('_a')
+                timestamp = file[timestamp_index+1:x_index]         
+
+
+                x = file[x_index+2:y_index]
+                y = file[y_index+2:a_index]
+                a = file[a_index+2:]
+                # x, y, a are strings, parse them to float
+                x = float(x)
+                y = float(y)
+                a = float(a)
+                timestamp = float(timestamp)
+
+                timestamps.append(timestamp)
+                x_positions.append(x)
+                y_positions.append(y)
+                orientations.append(a)
+    df_locations = pd.DataFrame({ 'file': files_names, 'timestamp': timestamps, 'x': x_positions, 'y': y_positions, 'orientation': orientations})
+    return df_locations
+
 
 def generate_pickle(run_folder, pickle_filename):
     print('Dataset root: {}'.format(PARAMS.dataset_folder))
@@ -109,12 +182,32 @@ def generate_pickle(run_folder, pickle_filename):
 
     construct_query_dict(df_locations, base_path + run_folder, pickle_filename, ind_nn_r=PARAMS.positive_distance, ind_r_r=PARAMS.negative_distance)
 
+def generate_pickle_two_sequences(run_folder, pickle_filename):
+    print('Dataset root: {}'.format(PARAMS.dataset_folder))
+    base_path = PARAMS.dataset_folder
+
+    all_room_folders1 = sorted(os.listdir(os.path.join(base_path, run_folder)))
+    all_room_folders2 = sorted(os.listdir(os.path.join(base_path, 'fr_seq2_cloudy1/')))
+   
+    folder_dir1 = os.path.join(base_path, run_folder)
+    folder_dir2 = os.path.join(base_path, 'fr_seq2_cloudy1/')
+    df_locations1 = get_pointcloud_positions_full_path(folder_dir1, all_room_folders1)
+    df_locations2 = get_pointcloud_positions_full_path(folder_dir2, all_room_folders2)
+
+    df_locations = pd.concat([df_locations1, df_locations2], ignore_index=True)
+
+
+    print("Number of pointclouds: " + str(len(df_locations['file'])))
+
+    construct_query_dict_2seq(df_locations, base_path + run_folder, pickle_filename, ind_nn_r=PARAMS.positive_distance, ind_r_r=PARAMS.negative_distance)
+
 if __name__ == '__main__':
-    PARAMS.train_folder = 'TrainingBaseline2/'
+    PARAMS.train_folder = 'Train_extended/'
     TRAIN_FOLDER = PARAMS.train_folder
     VAL_FOLDER = PARAMS.val_folder
-    generate_pickle(TRAIN_FOLDER, "training_queries_baseline2.pickle")
-    generate_pickle(VAL_FOLDER, "validation_queries_baseline.pickle")
+    #generate_pickle(TRAIN_FOLDER, "training_queries_baseline2.pickle")
+    #generate_pickle(VAL_FOLDER, "validation_queries_baseline.pickle")
+    generate_pickle_two_sequences(TRAIN_FOLDER, "training_queries_2seq.pickle")
 
 
 

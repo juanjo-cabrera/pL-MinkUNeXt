@@ -26,7 +26,7 @@ from model.minkunext import MinkUNeXt
 from datasets.dataset_utils import rgb_to_hue_pytorch
 
 
-def evaluate(model, device, log: bool = False, show_progress: bool = False):
+def evaluate_fb(model, device, log: bool = False, show_progress: bool = False):
     # Run evaluation on all eval datasets
 
     eval_database_files = ['cloudy_evaluation_database.pickle', 'sunny_evaluation_database.pickle']
@@ -37,7 +37,7 @@ def evaluate(model, device, log: bool = False, show_progress: bool = False):
     stats = {}
     database_embeddings = []
     database_file = eval_database_files[0]
-    p = os.path.join(PARAMS.dataset_folder, database_file)
+    p = os.path.join(PARAMS.test_folder, database_file)
     with open(p, 'rb') as f:
         database_sets = pickle.load(f)
     #for set in tqdm.tqdm(database_sets, disable=not show_progress, desc='Computing database embeddings'):
@@ -45,7 +45,7 @@ def evaluate(model, device, log: bool = False, show_progress: bool = False):
 
     for query_file in eval_query_files:
         location_name = query_file.split('_')[0]
-        p = os.path.join(PARAMS.dataset_folder, query_file)
+        p = os.path.join(PARAMS.test_folder, query_file)
         with open(p, 'rb') as f:
             query_sets = pickle.load(f)
 
@@ -119,7 +119,7 @@ def compute_embedding(model, pc, device):
         if PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
         """ 
-        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients:
+        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
             feats = feats.to(device)
         elif PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
@@ -245,7 +245,7 @@ def pnv_write_eval_stats(file_name, prefix, stats):
 if __name__ == "__main__":
 
     PARAMS.cuda_device = 'cuda:0'
-    PARAMS.dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_B'
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_B'
   
     if torch.cuda.is_available():
         device = PARAMS.cuda_device
@@ -265,13 +265,18 @@ if __name__ == "__main__":
     # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query20batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250302_1757_best_test.pth'
     # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query12batch_size256_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250301_0106_best_test.pth'
     #PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query24batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250303_0112_best_test.pth'
-    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250306_2115_best_test.pth'
-    PARAMS.use_gradients =  True
+    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250308_2326_best_test.pth'
+    PARAMS.use_magnitude =  True
 
-    # Load a pretrained model                           
-              
-    if PARAMS.use_rgb or PARAMS.use_gradients:
+    # Load a pretrained model                     
+    if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:
+        model = MinkUNeXt(in_channels=2, out_channels=512, D=3)       
+    elif PARAMS.use_rgb or PARAMS.use_gradients or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones:
         model = MinkUNeXt(in_channels=3, out_channels=512, D=3)
+    elif PARAMS.use_magnitude_anglexy_hue:
+        model = MinkUNeXt(in_channels=4, out_channels=512, D=3)
+    elif PARAMS.use_magnitude_anglexy_hue_ones:
+        model = MinkUNeXt(in_channels=5, out_channels=512, D=3)
     else: 
         model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
                                 
@@ -279,7 +284,7 @@ if __name__ == "__main__":
 
     model.to(device)
 
-    stats = evaluate(model, device, log=False, show_progress=True)
+    stats = evaluate_fb(model, device, log=False, show_progress=True)
     print_eval_stats(stats)
 
     # Save results to the text file

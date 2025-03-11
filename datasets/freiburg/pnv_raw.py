@@ -13,6 +13,10 @@ import open3d as o3d
 from datasets.base_datasets import PointCloudLoader
 from scipy.spatial import cKDTree
 
+class PointCloud():
+    def __init__(self, points, colors):
+        self.points = points
+        self.colors = colors
 
 class PNVPointCloudLoader(PointCloudLoader):
     def set_properties(self):
@@ -20,6 +24,7 @@ class PNVPointCloudLoader(PointCloudLoader):
         self.remove_zero_points = False
         self.remove_ground_plane = False
         self.ground_plane_level = None
+        
 
     
 
@@ -88,6 +93,7 @@ class PNVPointCloudLoader(PointCloudLoader):
         pcd_non_plane = o3d.geometry.PointCloud()
         pcd_non_plane.points = o3d.utility.Vector3dVector(points[idx])
         pcd_non_plane.colors = o3d.utility.Vector3dVector(colors[idx])
+        # pcd_non_plane = PointCloud(points=points[idx], colors=colors[idx])
 
         # show pointcloud
         #o3d.visualization.draw_geometries([pcd_non_plane])
@@ -209,6 +215,31 @@ class PNVPointCloudLoader(PointCloudLoader):
             color /= 255
         color = color + 0.5
         return color
+    
+    def rgb_to_hue(self, rgb):
+        # Separar los canales RGB
+        r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+
+        # Calcular el numerador y denominador para la fórmula del arcoseno
+        numerator = (r - g) + (r - b)
+        denominator = 2 * np.sqrt((r - g) ** 2 + (r - b) * (g - b))
+
+        # Evitar divisiones por cero: establecer denominadores cercanos a cero en un valor pequeño
+        denominator = np.where(denominator == 0, 1e-10, denominator)
+
+        # Calcular theta usando la fórmula del arcoseno
+        theta = np.arccos(numerator / denominator)
+
+        # Convertir theta de radianes a grados manualmente
+        theta_degrees = theta * (180.0 / np.pi)
+
+        # Ajustar el valor del Hue según el valor de B y G
+        hue = np.where(b <= g, theta_degrees, 360 - theta_degrees)
+        # Pasar a formato [N, 1]
+        hue = hue.reshape(-1, 1)
+        # normalizar a [0.5, 1.5]
+        hue = (hue / 360.0) + 0.5
+        return hue
 
     def read_pc(self, file_pathname: str, max_gradient=903.84625)-> np.ndarray:
         # Reads the point cloud without pre-processing
@@ -216,6 +247,7 @@ class PNVPointCloudLoader(PointCloudLoader):
         file_path = os.path.join(file_pathname)
         if not PARAMS.use_dino_features and not PARAMS.use_depth_features:            
             pcd = o3d.io.read_point_cloud(file_path)
+            #if PARAMS.use_gradients:
             if PARAMS.use_gradients:
                 magnitude_pathname = file_pathname.replace('PCD_SMALL', 'MAGNITUDE')
                 magnitude_pathname = magnitude_pathname.replace('PCD_BASE', 'MAGNITUDE')
@@ -231,19 +263,65 @@ class PNVPointCloudLoader(PointCloudLoader):
                 magnitude = magnitude.reshape(-1, 1)
                 angle = angle.reshape(-1, 1)
                 # normalize the magnitude and angle
+                #magnitude = (magnitude / max_gradient) + 0.5
+                #angle = (angle / 360.0) + 0.5
+                #ones = np.ones((magnitude.shape[0], 1))
+                #features = np.concatenate((magnitude, angle, ones), axis=1)
                 magnitude = (magnitude / max_gradient) + 0.5
-                angle = (angle / 360.0) + 0.5
-                ones = np.ones((magnitude.shape[0], 1))
-                features = np.concatenate((magnitude, angle, ones), axis=1)
-
+                rad_angle = np.deg2rad(angle)
+                #x = magnitude * np.cos(angle) a probar
+                #y = magnitude * np.sin(angle)
+                #x = np.cos(rad_angle) + 1
+                #y = np.sin(rad_angle) + 1
+                x = np.cos(rad_angle)/2 + 0.5
+                y = np.sin(rad_angle)/2 + 0.5
+                #ones = np.ones((magnitude.shape[0], 1))
+                # # features = np.concatenate((magnitude, x, y), axis=1)
+                # # pcd.colors = o3d.utility.Vector3dVector(features)
+                if PARAMS.use_magnitude:
+                    features = magnitude
+                elif PARAMS.use_angle:
+                    angle = (angle / 360.0)
+                    features = angle + 0.5
+                elif PARAMS.use_anglexy:
+                    features = np.column_stack((x, y), axis=1)
+                elif PARAMS.use_magnitude_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    features = np.column_stack((magnitude, hue), axis=1)
+                elif PARAMS.use_magnitude_ones:
+                    ones = np.ones((magnitude.shape[0], 1))
+                    features = np.column_stack((magnitude, ones), axis=1)
+                elif PARAMS.use_anglexy_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    features = np.column_stack((x, y, hue), axis=1)
+                elif PARAMS.use_anglexy_ones:
+                    ones = np.ones((magnitude.shape[0], 1))
+                    features = np.column_stack((x, y, ones), axis=1)
+                elif PARAMS.use_magnitude_anglexy:
+                    features = np.column_stack((magnitude, x, y), axis=1)
+                elif PARAMS.use_magnitude_anglexy_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    features = np.column_stack((magnitude, x, y, hue), axis=1)
+                elif PARAMS.use_magnitude_anglexy_hue_ones:
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    ones = np.ones((magnitude.shape[0], 1))
+                    features = np.column_stack((magnitude, x, y, hue, ones), axis=1)
                 pcd.colors = o3d.utility.Vector3dVector(features)
+                #pcd = PointCloud(points=np.asarray(pcd.points), colors=features)
+
             # filter the points by height
             if PARAMS.height is not None:
                 pcd = self.filter_by_height(pcd, height=PARAMS.height)       
             # show pointcloud
             #o3d.visualization.draw_geometries([pcd])
             if PARAMS.voxel_size is not None:
+                # o3d pcd
+                # o3d_pcd = o3d.geometry.PointCloud()
+                # o3d_pcd.points = o3d.utility.Vector3dVector(pcd.points)
+                # o3d_pcd.colors = o3d.utility.Vector3dVector(pcd.colors)      
+                # pcd = o3d_pcd          
                 pcd = pcd.voxel_down_sample(voxel_size=PARAMS.voxel_size)
+                #pcd.points, pcd.colors = self.voxel_downsample_with_features(pcd.points, pcd.colors, voxel_size=PARAMS.voxel_size)
 
             points, colors = self.global_normalize(pcd, max_distance=PARAMS.max_distance)
             # normalize the color

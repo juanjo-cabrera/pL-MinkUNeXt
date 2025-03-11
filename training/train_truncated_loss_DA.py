@@ -34,7 +34,7 @@ def do_train(model):
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_no_weights_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -290,11 +290,11 @@ if __name__ == '__main__':
     # distances from 0.3 up to 2.0
     positive_distance = [0.7]
     negative_distance = [0.7]
-    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/']
+    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/']
     PARAMS.epochs = 200
     PARAMS.scheduler_milestones = [150, 180]
-    TRAIN_FOLDER = "TrainingBaseline/"
-    VAL_FOLDER = "Validation/"
+    PARAMS.TRAIN_FOLDER = "Train_extended/"
+    PARAMS.VAL_FOLDER = "Validation/"
     # del 32 al 38
     #aug_modes = [25]
     #aug_modes = [25]
@@ -328,12 +328,12 @@ if __name__ == '__main__':
                         torch.backends.cudnn.benchmark = False
                         # Load a pretrained model
                         model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
-                        if PARAMS.weights_path is not None:
-                            model.load_state_dict(torch.load(PARAMS.weights_path))
-                            print('Model loaded from: {}'.format(PARAMS.weights_path))
-                        if PARAMS.use_rgb:
-                            model.conv0p1s1 = ME.MinkowskiConvolution(
-                                3, 32, kernel_size=5, dimension=3)
+                        # if PARAMS.weights_path is not None:
+                        #     model.load_state_dict(torch.load(PARAMS.weights_path))
+                        #     print('Model loaded from: {}'.format(PARAMS.weights_path))
+                        # if PARAMS.use_rgb:
+                        #     model.conv0p1s1 = ME.MinkowskiConvolution(
+                        #         3, 32, kernel_size=5, dimension=3)
                         PARAMS.positive_distance = positive_distance[i]            
                         PARAMS.negative_distance = negative_distance[i]
                         print('Positive distance: ', PARAMS.positive_distance)
@@ -341,9 +341,9 @@ if __name__ == '__main__':
                         train_pickle = 'training_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
                         val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
                         # check if the pickle files exist
-                        if not os.path.exists(base_path + TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + VAL_FOLDER + val_pickle):
-                            generate_pickle(TRAIN_FOLDER, train_pickle)
-                            generate_pickle(VAL_FOLDER, val_pickle)
+                        if not os.path.exists(base_path + PARAMS.TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + PARAMS.VAL_FOLDER + val_pickle):
+                            generate_pickle(PARAMS.TRAIN_FOLDER, train_pickle)
+                            generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
                         PARAMS.train_file = train_pickle
                         PARAMS.val_file = val_pickle
                         do_train(model)

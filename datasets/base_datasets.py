@@ -105,7 +105,13 @@ class TrainingDataset(Dataset):
 
     def __getitem__(self, ndx):
         # Load point cloud and apply transform
-        file_pathname = os.path.join(self.dataset_path, self.queries[ndx].rel_scan_filepath)
+        # file_pathname = os.path.join(self.dataset_path, self.queries[ndx].rel_scan_filepath)
+        # si el path está completo, no se le añade el dataset_path
+        if self.queries[ndx].rel_scan_filepath.startswith('/home/'):
+            file_pathname = self.queries[ndx].rel_scan_filepath
+        else:
+            file_pathname = os.path.join(self.dataset_path, self.queries[ndx].rel_scan_filepath)
+
         if self.transform is not None:
             if PARAMS.use_video:
                 file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_Depth_Anything_Video_Small')
