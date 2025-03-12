@@ -12,6 +12,7 @@ use_hue: False
 use_video: False
 use_gradients: False
 use_magnitude: False
+max_magnitude: 903.84625
 use_magnitude_hue: False
 use_magnitude_ones: False
 use_angle: False

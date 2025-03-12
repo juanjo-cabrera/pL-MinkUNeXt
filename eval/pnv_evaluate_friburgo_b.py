@@ -119,14 +119,14 @@ def compute_embedding(model, pc, device):
         if PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
         """ 
-        if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
+        if PARAMS.use_rgb or PARAMS.use_hue or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
             feats = feats.to(device)
         elif PARAMS.use_gray:
             feats = torch.mean(feats, dim=1, keepdim=True)
             feats = feats.to(device)
-        elif PARAMS.use_hue:
-            feats = rgb_to_hue_pytorch(feats)
-            feats = feats.to(device)
+        # elif PARAMS.use_hue:
+        #     feats = rgb_to_hue_pytorch(feats)
+        #     feats = feats.to(device)
         else:
             feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
             feats = feats.to(device)
@@ -265,8 +265,9 @@ if __name__ == "__main__":
     # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query20batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250302_1757_best_test.pth'
     # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query12batch_size256_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250301_0106_best_test.pth'
     #PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query24batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250303_0112_best_test.pth'
-    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250308_2326_best_test.pth'
-    PARAMS.use_magnitude =  True
+    #PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250308_2326_best_test.pth'
+    #PARAMS.use_magnitude =  False
+    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_2seq_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250311_1157_best_test.pth'
 
     # Load a pretrained model                     
     if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:

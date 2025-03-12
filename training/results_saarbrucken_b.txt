@@ -17,3 +17,5 @@ Feature: Magnitude + Ones
 baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250309_2005_best_test, 98.44, 80.14, 92.64, 75.63, 96.33, 79.47, 95.81, 78.42
 Feature: Angle
 baseline, Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250310_0525_best_test, 98.21, 84.57, 95.29, 78.28, 97.13, 80.96, 96.88, 81.27
+baseline, Indoor_MinkUNeXt_2seq_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250311_1157_best_test, 98.68, 84.45, 96.32, 80.69, 97.71, 81.42, 97.57, 82.19
+baseline, Indoor_MinkUNeXt_2seq_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250311_1157_best_test, 98.68, 85.05, 95.63, 81.84, 98.05, 81.65, 97.46, 82.85

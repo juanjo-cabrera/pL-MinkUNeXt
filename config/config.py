@@ -31,6 +31,7 @@ class Config():
             self.use_hue = config.get('use_hue')
             self.use_video = config.get('use_video')
             self.use_gradients = config.get('use_gradients')
+            self.max_magnitude = config.get('max_magnitude')
             # use_magnitude: False
             # use_magnitude_hue: False
             # use_magnitude_ones: False

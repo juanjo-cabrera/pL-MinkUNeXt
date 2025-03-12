@@ -14,6 +14,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 # Add the parent directory to sys.path
 sys.path.append(parent_dir)
+from scipy.spatial import cKDTree
 from config import PARAMS
 
 class TrainingTuple:
@@ -48,6 +49,10 @@ class EvaluationTuple:
     def to_tuple(self):
         return self.timestamp, self.rel_scan_filepath, self.position
 
+class PointCloud():
+    def __init__(self, points, colors):
+        self.points = points
+        self.colors = colors
 
 class TrainingDataset(Dataset):
     def __init__(self, dataset_path, query_filename, transform=None, set_transform=None):
@@ -60,7 +65,7 @@ class TrainingDataset(Dataset):
         self.set_transform = set_transform
         self.queries: Dict[int, TrainingTuple] = pickle.load(open(self.query_filepath, 'rb'))
         print('{} queries in the dataset'.format(len(self)))
-        self.max_gradient = None
+ 
         # pc_loader must be set in the inheriting class
         self.pc_loader: PointCloudLoader = None
         if PARAMS.use_depth_features:
@@ -80,25 +85,236 @@ class TrainingDataset(Dataset):
             self.features['files'] = features_files
             self.features['values'] = [np.load(file) for file in features_files]
             print('Features loaded: ', len(self.features))
-        if PARAMS.use_gradients:
-            gradients_path = dataset_path.replace('Validation', 'Train_extended')
-            gradients_path = gradients_path.replace('PCD_LARGE', 'MAGNITUDE')
-            # list all the files in the features_path
-            gradients_folders = os.listdir(gradients_path)
-            # list the files of each folder
-            gradients_files = []
-            for folder in gradients_folders:
-                folder_path = gradients_path + folder
+
+        self.processed_pcds = {}
+        dataset2_path = dataset_path.replace('Train_extended', 'fr_seq2_cloudy1')
+        # magnitude_path = dataset_path.replace('Validation', 'Train_extended')
+        magnitude_path1 = dataset_path.replace('PCD_LARGE', 'MAGNITUDE')
+        magnitude_path2 = dataset2_path.replace('PCD_LARGE', 'MAGNITUDE')
+     
+        # list all the files in the features_path
+        magnitude_folders1 = os.listdir(magnitude_path1)
+        magnitude_folders2 = os.listdir(magnitude_path2)
+
+        # list the files of each folder
+        magnitude_files = []
+        angles_files = []
+        pcds_large_files = []
+        for folder in magnitude_folders1:
+            folder_path = magnitude_path1 + folder
+            files = os.listdir(folder_path)
+            files = [folder_path + '/' + file for file in files]
+            magnitude_files.extend(files)
+            angle_files = [file.replace('MAGNITUDE', 'ANGLE') for file in files]
+            angles_files.extend(angle_files)
+            pcds_large_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in files])
+            pcds_base_files = [file.replace('PCD_LARGE', 'PCD_BASE') for file in pcds_large_files]
+            pcds_small_files = [file.replace('PCD_LARGE', 'PCD_SMALL') for file in pcds_large_files]
+        if not 'Validation' in dataset_path:
+            for folder in magnitude_folders2:
+                folder_path = magnitude_path2 + folder
                 files = os.listdir(folder_path)
                 files = [folder_path + '/' + file for file in files]
-                gradients_files.extend(files)
+                magnitude_files.extend(files)
+                angle_files = [file.replace('MAGNITUDE', 'ANGLE') for file in files]
+                angles_files.extend(angle_files)
+                pcds_large_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in files])
+                pcds_base_files = [file.replace('PCD_LARGE', 'PCD_BASE') for file in pcds_large_files]
+                pcds_small_files = [file.replace('PCD_LARGE', 'PCD_SMALL') for file in pcds_large_files]
+        # load the features
+        magnitudes = [np.load(file) for file in magnitude_files]
+        if not 'Validation' in dataset_path:
+            self.max_magnitude = np.max(magnitudes)
+            PARAMS.max_magnitude = self.max_magnitude
+        print('Max magnitude computed: ', PARAMS.max_magnitude)
+        angles = [np.load(file) for file in angles_files]
+        pcds_large = []
+        pcds_base = []
+        pcds_small = []
+        for i in range(len(magnitudes)):
+            pcd_large = o3d.io.read_point_cloud(pcds_large_files[i])
+            if not 'Validation' in dataset_path:
+                pcd_base = o3d.io.read_point_cloud(pcds_base_files[i])
+                pcd_small = o3d.io.read_point_cloud(pcds_small_files[i])
+            if PARAMS.use_gradients:
+                magnitude = magnitudes[i].reshape(-1, 1)
+                angle = angles[i].reshape(-1, 1)
+                # global normalize the magnitude
+                magnitude = (magnitude / PARAMS.max_magnitude) + 0.5
+                rad_angle = np.deg2rad(angle)
+            
+                x = np.cos(rad_angle)/2 + 0.5
+                y = np.sin(rad_angle)/2 + 0.5
+                
+                if PARAMS.use_magnitude:
+                    features = magnitude
+                elif PARAMS.use_angle:
+                    angle = (angle / 360.0)
+                    features = angle + 0.5
+                elif PARAMS.use_anglexy:
+                    features = np.column_stack((x, y))
+                elif PARAMS.use_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = hue
+                elif PARAMS.use_magnitude_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = np.column_stack((magnitude, hue))
+                elif PARAMS.use_magnitude_ones:
+                    ones = np.ones((magnitude.shape[0], 1))
+                    features = np.column_stack((magnitude, ones))
+                elif PARAMS.use_anglexy_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = np.column_stack((x, y, hue))
+                elif PARAMS.use_anglexy_ones:
+                    ones = np.ones((magnitude.shape[0], 1))
+                    features = np.column_stack((x, y, ones))
+                elif PARAMS.use_magnitude_anglexy:
+                    features = np.column_stack((magnitude, x, y))
+                elif PARAMS.use_magnitude_anglexy_hue:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = np.column_stack((magnitude, x, y, hue))
+                elif PARAMS.use_magnitude_anglexy_hue_ones:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    ones = np.ones((magnitude.shape[0], 1))
+                    features = np.column_stack((magnitude, x, y, hue, ones))              
+
+            pcd_large = PointCloud(points=np.asarray(pcd_large.points), colors=features)
+            if not 'Validation' in dataset_path:
+                pcd_base = PointCloud(points=np.asarray(pcd_base.points), colors=features)
+                pcd_small = PointCloud(points=np.asarray(pcd_small.points), colors=features)
+
+            # filter the points by height
+            if PARAMS.height is not None:
+                pcd_large = self.filter_by_height(pcd_large, height=PARAMS.height)   
+                if not 'Validation' in dataset_path:
+                    pcd_base = self.filter_by_height(pcd_base, height=PARAMS.height)
+                    pcd_small = self.filter_by_height(pcd_small, height=PARAMS.height)    
+            # show pointcloud
+            #o3d.visualization.draw_geometries([pcd])
+            if PARAMS.voxel_size is not None:            
+                pcd_large.points, pcd_large.colors = self.voxel_downsample_with_features(pcd_large.points, pcd_large.colors, voxel_size=PARAMS.voxel_size)
+                if not 'Validation' in dataset_path:
+                    pcd_base.points, pcd_base.colors = self.voxel_downsample_with_features(pcd_base.points, pcd_base.colors, voxel_size=PARAMS.voxel_size)
+                    pcd_small.points, pcd_small.colors = self.voxel_downsample_with_features(pcd_small.points, pcd_small.colors, voxel_size=PARAMS.voxel_size)
+
+            points_large, colors_large = self.global_normalize(pcd_large, max_distance=PARAMS.max_distance)
+            if not 'Validation' in dataset_path:
+                points_base, colors_base = self.global_normalize(pcd_base, max_distance=PARAMS.max_distance)
+                points_small, colors_small = self.global_normalize(pcd_small, max_distance=PARAMS.max_distance)
+            
+            pc_large = {}
+            pc_large['points'] = points_large
+            pc_large['colors'] = colors_large
+            pcds_large.append(pc_large)
+            if not 'Validation' in dataset_path:
+                pc_base = {}
+                pc_base['points'] = points_base
+                pc_base['colors'] = colors_base
+                pc_small = {}
+                pc_small['points'] = points_small
+                pc_small['colors'] = colors_small            
+                pcds_base.append(pc_base)
+                pcds_small.append(pc_small)
         
-            # load the features
-            gradients = [np.load(file) for file in gradients_files]
-            # compute the maximum gradient value
-            self.max_gradient = np.max(gradients)
-            gradients = []
+        self.processed_pcds['large'] = pcds_large
+        print('Point clouds loaded: ', len(pcds_large))
+        if not 'Validation' in dataset_path:
+            self.processed_pcds['base'] = pcds_base
+            self.processed_pcds['small'] = pcds_small
+        self.processed_pcds['files'] = pcds_large_files
+        print('Files loaded: ', len(pcds_large_files))
+
+    def global_normalize(self, pcd, max_distance=15.0):
+            import copy
+            """
+            Normalize a pointcloud to achieve mean zero, scaled between [-1, 1] and with a fixed number of points
+            """
+            pcd = copy.deepcopy(pcd)
+            points = np.asarray(pcd.points)
+            colors = np.asarray(pcd.colors)
+
+            [x, y, z] = points[:, 0], points[:, 1], points[:, 2]
+            x_mean = np.mean(x)
+            y_mean = np.mean(y)
+            z_mean = np.mean(z)
+
+            x = x - x_mean
+            y = y - y_mean
+            z = z - z_mean
+
+            x = x / max_distance
+            y = y / max_distance
+            z = z / max_distance
+
+            points[:, 0] = x
+            points[:, 1] = y
+            points[:, 2] = z
+
+            # pointcloud_normalized = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(points))
+            return points, colors
+
+    def voxel_downsample_with_features(self, points, features, voxel_size):
+        """
+        Realiza un voxel downsampling en una nube de puntos y mantiene las características asociadas.
+        
+        Args:
+            points (np.ndarray): Array de Nx3 con las coordenadas de los puntos.
+            features (np.ndarray): Array de NxM con las características asociadas a cada punto.
+            voxel_size (float): Tamaño del voxel para el downsampling.
+
+        Returns:
+            downsampled_points (np.ndarray): Puntos downsampled (Mx3).
+            downsampled_features (np.ndarray): Features promediadas o combinadas correspondientes (MxM).
+        """
+        # Crear la nube de puntos en Open3D
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        # Realizar el voxel downsampling usando Open3D
+        downsampled_pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
+        downsampled_points = np.asarray(downsampled_pcd.points)
+
+        # Obten el índice del punto original más cercanos a los puntos downsampled
+        kdtree = cKDTree(points)
+        _, indices = kdtree.query(downsampled_points)
+        # Obten la feature correspondiente para los puntos en cada voxel
+        downsampled_features = features[indices]      
+
+        return downsampled_points, downsampled_features
            
+    def filter_by_height(self, pcd=None, height=0.5):
+        # filter the points by height
+        points = np.asarray(pcd.points)
+        colors = np.asarray(pcd.colors)
+        idx = points[:, 2] > height
+        # now select the final pointclouds    
+        pcd_non_plane = PointCloud(points=points[idx], colors=colors[idx])        
+        return pcd_non_plane
+    
+    def rgb_to_hue(self, rgb):
+        # Separar los canales RGB
+        r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+
+        # Calcular el numerador y denominador para la fórmula del arcoseno
+        numerator = (r - g) + (r - b)
+        denominator = 2 * np.sqrt((r - g) ** 2 + (r - b) * (g - b))
+
+        # Evitar divisiones por cero: establecer denominadores cercanos a cero en un valor pequeño
+        denominator = np.where(denominator == 0, 1e-10, denominator)
+
+        # Calcular theta usando la fórmula del arcoseno
+        theta = np.arccos(numerator / denominator)
+
+        # Convertir theta de radianes a grados manualmente
+        theta_degrees = theta * (180.0 / np.pi)
+
+        # Ajustar el valor del Hue según el valor de B y G
+        hue = np.where(b <= g, theta_degrees, 360 - theta_degrees)
+        # Pasar a formato [N, 1]
+        hue = hue.reshape(-1, 1)
+        # normalizar a [0.5, 1.5]
+        hue = (hue / 360.0) + 0.5
+        return hue
 
     def __len__(self):
         return len(self.queries)
@@ -124,33 +340,33 @@ class TrainingDataset(Dataset):
                     # en una probabilidad del 40% se cambia el path
                     if np.random.rand() < 0.7:
                         if np.random.rand() < 0.5:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
                         else:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
                 elif PARAMS.aug_mode == '3depths0.8':
                     # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
                     # en una probabilidad del 40% se cambia el path
                     if np.random.rand() < 0.8:
                         if np.random.rand() < 0.5:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
                         else:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
                 elif PARAMS.aug_mode == '3depths0.9':
                     # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
                     # en una probabilidad del 40% se cambia el path
                     if np.random.rand() < 0.9:
                         if np.random.rand() < 0.5:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
                         else:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
                 elif PARAMS.aug_mode == 'only_best_effects':
                     # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
                     # en una probabilidad del 40% se cambia el path
                     if np.random.rand() < PARAMS.p_depth:
                         if np.random.rand() < 0.5:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_base')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
                         else:
-                            file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_non_metric_Friburgo_small')
+                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
                 elif PARAMS.aug_mode == 'only_best_effects0.5':
                     # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
                     # en una probabilidad del 50% se cambia el path
@@ -178,7 +394,18 @@ class TrainingDataset(Dataset):
      
             query = self.pc_loader.read_pc_features(file_pathname, features)
         else:
-            query = self.pc_loader.read_pc(file_pathname, self.max_gradient)
+            # query = self.pc_loader.read_pc(file_pathname, self.max_gradient)
+            if 'SMALL' in file_pathname:
+                file_pathname = file_pathname.replace('SMALL', 'LARGE')
+                index = self.processed_pcds['files'].index(file_pathname)
+                query = self.processed_pcds['small'][index]
+            elif 'BASE' in file_pathname:
+                file_pathname = file_pathname.replace('BASE', 'LARGE')
+                index = self.processed_pcds['files'].index(file_pathname)
+                query = self.processed_pcds['base'][index]
+            else:
+                index = self.processed_pcds['files'].index(file_pathname)
+                query = self.processed_pcds['large'][index]
         # end = time.time()
         # print("Time to read point cloud: ", end - start)
 

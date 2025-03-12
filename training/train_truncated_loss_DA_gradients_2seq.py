@@ -15,18 +15,21 @@ from trainer import *
 from model.minkunext import MinkUNeXt
 from losses.truncated_smoothap import TruncatedSmoothAP
 import time
-from eval.pnv_evaluate import *
+from eval.pnv_evaluate_efficient import *
 from datasets.freiburg.generate_training_tuples_baseline import *
 
 def get_datetime():
     return time.strftime("%Y%m%d_%H%M")
 
 def do_train(model):
+    
     # write on filename the input features used
-    file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_train2_gradients.txt'
+    file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_train2seq_with_features.txt'
     with open(file_name, "a") as f:
         if PARAMS.use_magnitude:
             f.write('Feature: Magnitude\n')
+        if PARAMS.use_hue:
+            f.write('Feature: Hue\n')
         if PARAMS.use_magnitude_hue:
             f.write('Feature: Magnitude + Hue\n')
         if PARAMS.use_magnitude_ones:
@@ -57,7 +60,7 @@ def do_train(model):
     elif PARAMS.dataset_folder == '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_small/':
         model_name = 'Indoor_MinkUNeXt_small_truncated_' + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     else:
-        model_name = 'Indoor_MinkUNeXt_gradients_pos_per_query'+ str(PARAMS.positives_per_query) + 'batch_size' + str(PARAMS.batch_size) + '_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
+        model_name = 'Indoor_MinkUNeXt_seq2_gradients_pos_per_query'+ str(PARAMS.positives_per_query) + 'batch_size' + str(PARAMS.batch_size) + '_truncated_aug' + str(PARAMS.aug_mode) + 'pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + 'voxel_size' + str(PARAMS.voxel_size) + 'height' + str(PARAMS.height) + '_' + s
     weights_path = create_weights_folder()
     model_pathname = os.path.join(weights_path, model_name)
     
@@ -78,6 +81,9 @@ def do_train(model):
     
     # set up dataloaders
     dataloaders = make_dataloaders()
+
+    print('Loading evaluation dataset...')
+    evaluation_set = EvaluationDataset(PARAMS.dataset_folder)
 
     # Training elements
     print('OPTIMIZER: ', PARAMS.optimizer)
@@ -216,13 +222,13 @@ def do_train(model):
             #if epoch >= 50:
             if epoch % 10 == 0 or epoch == 1:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_train2_gradients.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_train2seq_with_features.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
                 
                 # Evaluate the model
-                stats_validation = evaluate(model, device, log=False, show_progress=True)
+                stats_validation = evaluation_set.evaluate(model, device, log=False, show_progress=True)
                 mae_cloudy, mae_night, mae_sunny = stats_validation['cloudy']['mean_error'], stats_validation['night']['mean_error'], stats_validation['sunny']['mean_error']
                 recall_cloudy, recall_night, recall_sunny = stats_validation['cloudy']['ave_recall'][0], stats_validation['night']['ave_recall'][0], stats_validation['sunny']['ave_recall'][0]
                 one_percent_recall_cloudy, one_percent_recall_night, one_percent_recall_sunny = stats_validation['cloudy']['ave_one_percent_recall'], stats_validation['night']['ave_one_percent_recall'], stats_validation['sunny']['ave_one_percent_recall']
@@ -352,7 +358,7 @@ if __name__ == '__main__':
     positive_distance = [0.7]
     negative_distance = [0.7]
     dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/']
-    PARAMS.epochs = 200
+    PARAMS.epochs = 50
     PARAMS.scheduler_milestones = [150, 180]
     PARAMS.TRAIN_FOLDER = "Train_extended/"
     PARAMS.VAL_FOLDER = "Validation/"
@@ -367,10 +373,12 @@ if __name__ == '__main__':
     PARAMS.use_gray = False
     PARAMS.use_video = False
     PARAMS.use_gradients = True
-    positives_per_query_list = [12]
+    positives_per_query_list = [16]
     batch_size = [512]
+    PARAMS.batch_split_size = 16
+    PARAMS.val_batch_size = 16
     # list for loop over the different input features PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
-    use_features = ['use_magnitude_anglexy', 'use_anglexy', 'use_anglexy_hue', 'use_anglexy_ones', 'use_magnitude_anglexy_hue', 'use_magnitude_anglexy_hue_ones']
+    use_features = ['use_magnitude_anglexy', 'use_anglexy', 'use_anglexy_hue', 'use_anglexy_ones', 'use_magnitude_anglexy_hue', 'use_magnitude_anglexy_hue_ones', 'use_hue', 'use_magnitude']
 
     for feature in use_features:
         setattr(PARAMS, feature, True)
@@ -426,14 +434,15 @@ if __name__ == '__main__':
                                     PARAMS.negative_distance = negative_distance[i]
                                     print('Positive distance: ', PARAMS.positive_distance)
                                     print('Negative distance: ', PARAMS.negative_distance)
-                                    train_pickle = 'training_queries_extended_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-                                    val_pickle = 'validation_queries_baseline_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                                    train_pickle = 'training_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+                                    val_pickle = 'validation_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
                                     # check if the pickle files exist
-                                    # if not os.path.exists(base_path + PARAMS.TRAIN_FOLDER + train_pickle) or not os.path.exists(base_path + PARAMS.VAL_FOLDER + val_pickle):
-                                    generate_pickle(PARAMS.TRAIN_FOLDER, train_pickle)
+                                
+                                    generate_pickle_two_sequences(PARAMS.TRAIN_FOLDER, train_pickle)
                                     generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
                                     PARAMS.train_file = train_pickle
                                     PARAMS.val_file = val_pickle
+                               
                                     do_train(model)
 
                                     # empty cache

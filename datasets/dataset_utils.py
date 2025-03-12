@@ -33,7 +33,6 @@ def make_datasets(validation: bool = True):
     # Create training and validation datasets
     datasets = {}
     train_set_transform = TrainSetTransform(PARAMS.aug_mode)
-
     # PoinNetVLAD datasets (RobotCar and Inhouse)
     # PNV datasets have their own transform
     train_transform = PNVTrainTransform(PARAMS.aug_mode)
@@ -126,9 +125,9 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
             elif PARAMS.use_gray:
                 feats = torch.cat(feats, dim=0)
                 feats = torch.mean(feats, dim=1, keepdim=True)
-            elif PARAMS.use_hue:
-                feats = torch.cat(feats, dim=0)
-                feats = rgb_to_hue_pytorch(feats)
+            # elif PARAMS.use_hue:
+            #     feats = torch.cat(feats, dim=0)
+            #     feats = rgb_to_hue_pytorch(feats)
             else:
                 feats = torch.ones((coords.shape[0], 1), dtype=torch.float32)
             # Assign a dummy feature equal to 1 to each point
@@ -141,7 +140,7 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
                 temp_coords = coords[i:i + batch_split_size]
                 temp_feats = feats[i:i + batch_split_size]
                 c = ME.utils.batched_coordinates(temp_coords)
-                if PARAMS.use_rgb or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
+                if PARAMS.use_rgb or PARAMS.use_hue or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
                     f = torch.cat(temp_feats, dim=0)
                 elif PARAMS.use_depth_features:
                     intermediate_feats = torch.cat(temp_feats, dim=0)
@@ -150,9 +149,9 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
                 elif PARAMS.use_gray:
                     f = torch.cat(temp_feats, dim=0)
                     f = torch.mean(f, dim=1, keepdim=True)
-                elif PARAMS.use_hue:
-                    f = torch.cat(temp_feats, dim=0)
-                    f = rgb_to_hue_pytorch(f)
+                # elif PARAMS.use_hue:
+                #     f = torch.cat(temp_feats, dim=0)
+                #     f = rgb_to_hue_pytorch(f)
                 else:
                     f = torch.ones((c.shape[0], 1), dtype=torch.float32)
                 if not PARAMS.use_depth_features:
