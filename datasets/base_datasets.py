@@ -173,10 +173,33 @@ class TrainingDataset(Dataset):
                 elif PARAMS.use_magnitude_anglexy_hue:
                     hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
                     features = np.column_stack((magnitude, x, y, hue))
+                    
+                elif PARAMS.use_magnitude_angle_hue:
+                    angle = (angle / 360.0) + 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = np.column_stack((magnitude, angle, hue))
+                elif PARAMS.use_magnitude_anglexy_hue_grey:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    grey = np.mean(np.asarray(pcd_large.colors), axis=1).reshape(-1, 1)
+                    features = np.column_stack((magnitude, x, y, hue, grey))
+                elif PARAMS.use_magnitude_angle_hue_grey:
+                    angle = (angle / 360.0) + 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    grey = np.mean(np.asarray(pcd_large.colors), axis=1).reshape(-1, 1)
+                    features = np.column_stack((magnitude, angle, hue, grey))
+                elif PARAMS.use_magnitude_anglexy_hue_rgb:
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = np.column_stack((magnitude, x, y, hue, np.asarray(pcd_large.colors)))
+                elif PARAMS.use_magnitude_angle_hue_rgb:
+                    angle = (angle / 360.0) + 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                    features = np.column_stack((magnitude, angle, hue, np.asarray(pcd_large.colors)))
                 elif PARAMS.use_magnitude_anglexy_hue_ones:
                     hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
                     ones = np.ones((magnitude.shape[0], 1))
-                    features = np.column_stack((magnitude, x, y, hue, ones))              
+                    features = np.column_stack((magnitude, x, y, hue, ones))     
+            else: 
+                features = np.ones((np.asarray(pcd_large.points).shape[0], 1))   
 
             pcd_large = PointCloud(points=np.asarray(pcd_large.points), colors=features)
             if not 'Validation' in dataset_path:
@@ -416,6 +439,9 @@ class TrainingDataset(Dataset):
 
         if self.transform is not None:
             query_points = self.transform(query_points)
+            if PARAMS.add_noise and np.random.rand() < PARAMS.noise_prob:
+                # add noise to the color values for each channel individually
+                query_color = query_color + torch.randn_like(query_color) * PARAMS.sigma   
 
         query_pc = {}
         query_pc['points'] = query_points

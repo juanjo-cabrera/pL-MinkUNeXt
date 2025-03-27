@@ -25,6 +25,7 @@ from datasets.quantization import quantizer
 from model.minkunext import model
 from datasets.dataset_utils import rgb_to_hue_pytorch
 from datasets.base_datasets import *
+from model.minkunext import MinkUNeXt
 
 class EvaluationDataset():
     def __init__(self, dataset_path):
@@ -34,9 +35,16 @@ class EvaluationDataset():
         night_query_path = dataset_path + 'TestNight/'
         sunny_query_path = dataset_path + 'TestSunny/'
         assert os.path.exists(database_path), 'Cannot access database path: {}'.format(database_path)
-        assert os.path.exists(cloudy_query_path), 'Cannot access cloudy query path: {}'.format(cloudy_query_path)
-        assert os.path.exists(night_query_path), 'Cannot access night query path: {}'.format(night_query_path)
-        assert os.path.exists(sunny_query_path), 'Cannot access sunny query path: {}'.format(sunny_query_path)
+        if not os.path.exists(cloudy_query_path):
+            # elude cloudy information if it does not exist
+            cloudy_query_path = None
+        if not os.path.exists(night_query_path):
+            # elude night information if it does not exist
+            night_query_path = None
+        if not os.path.exists(sunny_query_path):
+            # elude sunny information if it does not exist
+            sunny_query_path = None
+        self.dataset_path = dataset_path
         self.database_path = database_path
         self.cloudy_query_path = cloudy_query_path
         self.night_query_path = night_query_path
@@ -49,9 +57,12 @@ class EvaluationDataset():
         self.processed_pcds = {}
 
         database_magnitude = database_path.replace('PCD_LARGE', 'MAGNITUDE')
-        query_cloudy_magnitude = cloudy_query_path.replace('PCD_LARGE', 'MAGNITUDE')
-        query_night_magnitude = night_query_path.replace('PCD_LARGE', 'MAGNITUDE')
-        query_sunny_magnitude = sunny_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+        if cloudy_query_path is not None:
+            cloudy_query_magnitude = cloudy_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+        if night_query_path is not None:
+            night_query_magnitude = night_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+        if sunny_query_path is not None:
+            sunny_query_magnitude = sunny_query_path.replace('PCD_LARGE', 'MAGNITUDE')
      
         # list all the files in the features_path
         folders = os.listdir(database_magnitude)
@@ -74,50 +85,54 @@ class EvaluationDataset():
 
         for folder in folders:
             database_folder_path = database_magnitude + folder
-            query_cloudy_folder_path = query_cloudy_magnitude + folder
-            query_night_folder_path = query_night_magnitude + folder
-            query_sunny_folder_path = query_sunny_magnitude + folder
             database_files = os.listdir(database_folder_path)
-            query_cloudy_files = os.listdir(query_cloudy_folder_path)
-            query_night_files = os.listdir(query_night_folder_path)
-            query_sunny_files = os.listdir(query_sunny_folder_path)
             database_files = [database_folder_path + '/' + file for file in database_files]
-            query_cloudy_files = [query_cloudy_folder_path + '/' + file for file in query_cloudy_files]
-            query_night_files = [query_night_folder_path + '/' + file for file in query_night_files]
-            query_sunny_files = [query_sunny_folder_path + '/' + file for file in query_sunny_files]
-
             database_magnitude_files.extend(database_files)
             database_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in database_files])
             database_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in database_files])
 
-            query_cloudy_magnitude_files.extend(query_cloudy_files)
-            query_cloudy_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_cloudy_files])
-            query_cloudy_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_cloudy_files])
+            if cloudy_query_path is not None:
+                query_cloudy_folder_path = cloudy_query_magnitude + folder
+                query_cloudy_files = os.listdir(query_cloudy_folder_path)
+                query_cloudy_files = [query_cloudy_folder_path + '/' + file for file in query_cloudy_files]
+                query_cloudy_magnitude_files.extend(query_cloudy_files)
+                query_cloudy_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_cloudy_files])
+                query_cloudy_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_cloudy_files])
+            
+            if night_query_path is not None:
+                query_night_folder_path = night_query_magnitude + folder
+                query_night_files = os.listdir(query_night_folder_path)
+                query_night_files = [query_night_folder_path + '/' + file for file in query_night_files]
+                query_night_magnitude_files.extend(query_night_files)
+                query_night_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_night_files])
+                query_night_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_night_files])
 
-            query_night_magnitude_files.extend(query_night_files)
-            query_night_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_night_files])
-            query_night_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_night_files])
-
-            query_sunny_magnitude_files.extend(query_sunny_files)
-            query_sunny_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_sunny_files])
-            query_sunny_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_sunny_files])
+            if sunny_query_path is not None:
+                query_sunny_folder_path = sunny_query_magnitude + folder
+                query_sunny_files = os.listdir(query_sunny_folder_path)
+                query_sunny_files = [query_sunny_folder_path + '/' + file for file in query_sunny_files]
+                query_sunny_magnitude_files.extend(query_sunny_files)
+                query_sunny_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_sunny_files])
+                query_sunny_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_sunny_files])
 
         self.max_magnitude = PARAMS.max_magnitude
         print('Max magnitude from training data', PARAMS.max_magnitude)
        
         database_magnitudes = [np.load(file) for file in database_magnitude_files]
-        database_angles = [np.load(file) for file in database_angles_files]        
-        query_cloudy_magnitudes = [np.load(file) for file in query_cloudy_magnitude_files]
-        query_cloudy_angles = [np.load(file) for file in query_cloudy_angles_files]
-        query_night_magnitudes = [np.load(file) for file in query_night_magnitude_files]
-        query_night_angles = [np.load(file) for file in query_night_angles_files]
-        query_sunny_magnitudes = [np.load(file) for file in query_sunny_magnitude_files]
-        query_sunny_angles = [np.load(file) for file in query_sunny_angles_files]
-
+        database_angles = [np.load(file) for file in database_angles_files]     
         self.database_pcds = self.process_pcds(database_magnitudes, database_angles, database_pcds_files)
-        self.query_cloudy_pcds = self.process_pcds(query_cloudy_magnitudes, query_cloudy_angles, query_cloudy_pcds_files)
-        self.query_night_pcds = self.process_pcds(query_night_magnitudes, query_night_angles, query_night_pcds_files)
-        self.query_sunny_pcds = self.process_pcds(query_sunny_magnitudes, query_sunny_angles, query_sunny_pcds_files)
+        if cloudy_query_path is not None:   
+            query_cloudy_magnitudes = [np.load(file) for file in query_cloudy_magnitude_files]
+            query_cloudy_angles = [np.load(file) for file in query_cloudy_angles_files]
+            self.query_cloudy_pcds = self.process_pcds(query_cloudy_magnitudes, query_cloudy_angles, query_cloudy_pcds_files)
+        if night_query_path is not None:
+            query_night_magnitudes = [np.load(file) for file in query_night_magnitude_files]
+            query_night_angles = [np.load(file) for file in query_night_angles_files]
+            self.query_night_pcds = self.process_pcds(query_night_magnitudes, query_night_angles, query_night_pcds_files)
+        if sunny_query_path is not None:
+            query_sunny_magnitudes = [np.load(file) for file in query_sunny_magnitude_files]
+            query_sunny_angles = [np.load(file) for file in query_sunny_angles_files]
+            self.query_sunny_pcds = self.process_pcds(query_sunny_magnitudes, query_sunny_angles, query_sunny_pcds_files)        
 
     
     def process_pcds(self, magnitudes, angles, pcds_files):
@@ -161,12 +176,32 @@ class EvaluationDataset():
                 elif PARAMS.use_magnitude_anglexy_hue:
                     hue = self.rgb_to_hue(np.asarray(pcd.colors))
                     features = np.column_stack((magnitude, x, y, hue))
+                elif PARAMS.use_magnitude_angle_hue:
+                    angle = (angle / 360.0) + 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    features = np.column_stack((magnitude, angle, hue))
+                elif PARAMS.use_magnitude_anglexy_hue_grey:
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    grey = np.mean(np.asarray(pcd.colors), axis=1).reshape(-1, 1)
+                    features = np.column_stack((magnitude, x, y, hue, grey))
+                elif PARAMS.use_magnitude_angle_hue_grey:
+                    angle = (angle / 360.0) + 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    grey = np.mean(np.asarray(pcd.colors), axis=1).reshape(-1, 1)
+                    features = np.column_stack((magnitude, angle, hue, grey))
+                elif PARAMS.use_magnitude_anglexy_hue_rgb:
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    features = np.column_stack((magnitude, x, y, hue, np.asarray(pcd.colors)))
+                elif PARAMS.use_magnitude_angle_hue_rgb:
+                    angle = (angle / 360.0) + 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    features = np.column_stack((magnitude, angle, hue, np.asarray(pcd.colors)))
                 elif PARAMS.use_magnitude_anglexy_hue_ones:
                     hue = self.rgb_to_hue(np.asarray(pcd.colors))
                     ones = np.ones((magnitude.shape[0], 1))
                     features = np.column_stack((magnitude, x, y, hue, ones))    
-                else:
-                    features = np.ones((magnitude.shape[0], 1))        
+            else:
+                features = np.ones((np.asarray(pcd.points).shape[0], 1))      
 
             pcd = PointCloud(points=np.asarray(pcd.points), colors=features)  
 
@@ -283,7 +318,7 @@ class EvaluationDataset():
     
     def evaluate(self, model, device, log: bool = False, show_progress: bool = False):
         if PARAMS.use_gradients:
-            print('REMINDER: using max_gradient=903.84625 for train_extended')
+            print(f'REMINDER: using max_gradient={PARAMS.max_magnitude} for train_extended')
         # Run evaluation on all eval datasets
 
         eval_database_files = ['cloudy_evaluation_database.pickle', 'night_evaluation_database.pickle', 'sunny_evaluation_database.pickle']
@@ -294,7 +329,7 @@ class EvaluationDataset():
         stats = {}
         database_embeddings = []
         database_file = eval_database_files[0]
-        p = os.path.join(PARAMS.dataset_folder, database_file)
+        p = os.path.join(self.dataset_path, database_file)
         with open(p, 'rb') as f:
             database_sets = pickle.load(f)
         #for set in tqdm.tqdm(database_sets, disable=not show_progress, desc='Computing database embeddings'):
@@ -302,12 +337,15 @@ class EvaluationDataset():
 
         for query_file in eval_query_files:
             location_name = query_file.split('_')[0]
-            p = os.path.join(PARAMS.dataset_folder, query_file)
-            with open(p, 'rb') as f:
-                query_sets = pickle.load(f)
+            p = os.path.join(self.dataset_path, query_file)
+            try:
+                with open(p, 'rb') as f:
+                    query_sets = pickle.load(f)
 
-            temp = self.evaluate_dataset(model, device, database_sets, database_embeddings, query_sets, log=log, show_progress=show_progress)
-            stats[location_name] = temp
+                temp = self.evaluate_dataset(model, device, database_sets, database_embeddings, query_sets, log=log, show_progress=show_progress)
+                stats[location_name] = temp
+            except:
+                print('Error loading file or it does not exist: {}'.format(p))
 
         return stats
 
@@ -522,6 +560,7 @@ def pnv_write_eval_stats(file_name, prefix, stats):
 
 
 if __name__ == "__main__":
+    PARAMS.cuda_device = 'cuda:1'
   
     if torch.cuda.is_available():
         device = PARAMS.cuda_device
@@ -531,22 +570,86 @@ if __name__ == "__main__":
 
     # set cuda device
     torch.cuda.set_device(device)
+    # from datasets.dataset_utils import make_dataloaders
+    # # set up dataloaders
+    # dataloaders = make_dataloaders()
+    #evaluation_set_fa = EvaluationDataset(PARAMS.dataset_folder)
+    PARAMS.use_magnitude_anglexy_hue = True
+    PARAMS.use_gradients = True
+
+    #PARAMS.weights_path = '/home/arvc/Juanjo/develop/IndoorMinkUnext/weights/Indoor_MinkUNeXt_rot270_pos0.7neg0.7voxel_size0.05height-0.25_20240906_1622_best.pth'
+    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_seq2_gradients_pos_per_query16batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250317_1444_best_test.pth'
     
-    evaluation_set = EvaluationDataset(PARAMS.dataset_folder)
-    PARAMS.weights_path = '/home/arvc/Juanjo/develop/IndoorMinkUnext/weights/Indoor_MinkUNeXt_rot270_pos0.7neg0.7voxel_size0.05height-0.25_20240906_1622_best.pth'
-    
+        # Load a pretrained model                     
+    if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:
+        model = MinkUNeXt(in_channels=2, out_channels=512, D=3)       
+    elif PARAMS.use_rgb or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones:
+        model = MinkUNeXt(in_channels=3, out_channels=512, D=3)
+    elif PARAMS.use_magnitude_anglexy_hue:
+        model = MinkUNeXt(in_channels=4, out_channels=512, D=3)
+    elif PARAMS.use_magnitude_anglexy_hue_ones:
+        model = MinkUNeXt(in_channels=5, out_channels=512, D=3)
+    else: 
+        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
     model.load_state_dict(torch.load(PARAMS.weights_path, map_location=device))
 
     model.to(device)
 
-    stats = evaluation_set.evaluate(model, device, log=False, show_progress=True)
-    print_eval_stats(stats)
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_B/'
+    evaluation_set_fb = EvaluationDataset(PARAMS.test_folder)
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_A/'
+    evaluation_set_sa = EvaluationDataset(PARAMS.test_folder)
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_B/'
+    evaluation_set_sb = EvaluationDataset(PARAMS.test_folder)
+
+
+    fb_stats = evaluation_set_fb.evaluate(model, device, log=False, show_progress=True)
+    sa_stats = evaluation_set_sa.evaluate(model, device, log=False, show_progress=True)
+    sb_stats = evaluation_set_sb.evaluate(model, device, log=False, show_progress=True)
+    print_eval_stats(fb_stats)
+    print_eval_stats(sa_stats)
+    print_eval_stats(sb_stats)
+
+    file_names = ['/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt', '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt', '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt']
+    for file_name in file_names:
+        with open(file_name, "a") as f:
+            if PARAMS.use_magnitude:
+                f.write('Feature: Magnitude\n')
+            if PARAMS.use_hue:
+                f.write('Feature: Hue\n')
+            if PARAMS.use_magnitude_hue:
+                f.write('Feature: Magnitude + Hue\n')
+            if PARAMS.use_magnitude_ones:
+                f.write('Feature: Magnitude + Ones\n')
+            if PARAMS.use_angle:
+                f.write('Feature: Angle\n')
+            if PARAMS.use_anglexy:
+                f.write('Feature: AngleXY\n')
+            if PARAMS.use_anglexy_hue:
+                f.write('Feature: AngleXY + Hue\n')
+            if PARAMS.use_anglexy_ones:
+                f.write('Feature: AngleXY + Ones\n')
+            if PARAMS.use_magnitude_anglexy_hue:
+                f.write('Feature: Magnitude + AngleXY + Hue\n')
+            if PARAMS.use_magnitude_anglexy_hue_ones:
+                f.write('Feature: Magnitude + AngleXY + Hue + Ones\n')
+            if PARAMS.use_magnitude_angle_hue:
+                f.write('Feature: Magnitude + Angle + Hue\n')
+            if PARAMS.use_magnitude_anglexy_hue_grey:
+                f.write('Feature: Magnitude + AngleXY + Hue + Grey\n')
+            if PARAMS.use_magnitude_angle_hue_grey:
+                f.write('Feature: Magnitude + Angle + Hue + Grey\n')
+            if PARAMS.use_magnitude_anglexy_hue_rgb:
+                f.write('Feature: Magnitude + AngleXY + Hue + RGB\n')
+            if PARAMS.use_magnitude_angle_hue_rgb:
+                f.write('Feature: Magnitude + Angle + Hue + RGB\n')
 
     # Save results to the text file
-
     model_name = os.path.split(PARAMS.weights_path)[1]
     model_name = os.path.splitext(model_name)[0]
     prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/IndoorMinkUnext/training/results.txt", prefix, stats)
+    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt", prefix, fb_stats)
+    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt", prefix, sa_stats)
+    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt", prefix, sb_stats)
 
 

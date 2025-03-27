@@ -52,7 +52,15 @@ class Config():
             self.use_magnitude_anglexy = config.get('use_magnitude_anglexy')
             self.use_magnitude_anglexy_hue = config.get('use_magnitude_anglexy_hue')
             self.use_magnitude_anglexy_hue_ones = config.get('use_magnitude_anglexy_hue_ones')
-            
+            self.use_magnitude_angle_hue = config.get('use_magnitude_angle_hue')
+            self.use_magnitude_anglexy_hue_grey = config.get('use_magnitude_anglexy_hue_grey')
+            self.use_magnitude_angle_hue_grey = config.get('use_magnitude_angle_hue_grey')
+            self.use_magnitude_anglexy_hue_rgb = config.get('use_magnitude_anglexy_hue_rgb')
+            self.use_magnitude_angle_hue_rgb = config.get('use_magnitude_angle_hue_rgb')
+            self.add_noise = config.get('add_noise')
+            self.noise_prob = config.get('noise_prob')
+            self.sigma = config.get('sigma')
+
             self.save_best = config.get('save_best')
             self.quantization_size = config.get('quantization_size')
             self.num_workers = config.get('num_workers')

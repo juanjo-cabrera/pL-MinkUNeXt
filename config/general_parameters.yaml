@@ -1,6 +1,6 @@
 dataset_folder: '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/'
 test_folder: '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/'
-cuda_device: 'cuda:0' # 'cuda:0' or 'cuda:1'
+cuda_device: 'cuda:1' # 'cuda:0' or 'cuda:1'
 positive_distance: 0.5 # meters
 negative_distance: 0.7 # meters
 
@@ -12,7 +12,7 @@ use_hue: False
 use_video: False
 use_gradients: False
 use_magnitude: False
-max_magnitude: 903.84625
+max_magnitude: 965.84576
 use_magnitude_hue: False
 use_magnitude_ones: False
 use_angle: False
@@ -22,6 +22,15 @@ use_anglexy_ones: False
 use_magnitude_anglexy: False
 use_magnitude_anglexy_hue: False
 use_magnitude_anglexy_hue_ones: False
+use_magnitude_angle_hue: False
+use_magnitude_anglexy_hue_grey: False
+use_magnitude_angle_hue_grey: False
+use_magnitude_anglexy_hue_rgb: False
+use_magnitude_angle_hue_rgb: False
+add_noise: False
+noise_prob: 0.1
+sigma: 0.1
+
 voxel_size: 0.05 # meters
 max_distance: 6.0 # meters
 height: -0.25 # meters

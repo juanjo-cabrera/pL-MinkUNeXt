@@ -140,23 +140,26 @@ def make_collate_fn(dataset: TrainingDataset, quantizer, batch_split_size=None):
                 temp_coords = coords[i:i + batch_split_size]
                 temp_feats = feats[i:i + batch_split_size]
                 c = ME.utils.batched_coordinates(temp_coords)
-                if PARAMS.use_rgb or PARAMS.use_hue or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
-                    f = torch.cat(temp_feats, dim=0)
-                elif PARAMS.use_depth_features:
-                    intermediate_feats = torch.cat(temp_feats, dim=0)
-                    initial_feats = torch.ones((c.shape[0], 1), dtype=torch.float32)
-                    # f = {'initial': initial_feats, 'intermediate': f}
-                elif PARAMS.use_gray:
-                    f = torch.cat(temp_feats, dim=0)
-                    f = torch.mean(f, dim=1, keepdim=True)
-                # elif PARAMS.use_hue:
+                # if PARAMS.use_rgb or PARAMS.use_hue or PARAMS.use_dino_features or PARAMS.use_gradients or PARAMS.use_magnitude or PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_angle or PARAMS.use_anglexy or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_anglexy_hue_ones:
                 #     f = torch.cat(temp_feats, dim=0)
-                #     f = rgb_to_hue_pytorch(f)
-                else:
-                    f = torch.ones((c.shape[0], 1), dtype=torch.float32)
+                # elif PARAMS.use_depth_features:
+                #     intermediate_feats = torch.cat(temp_feats, dim=0)
+                #     initial_feats = torch.ones((c.shape[0], 1), dtype=torch.float32)
+                #     # f = {'initial': initial_feats, 'intermediate': f}
+                # elif PARAMS.use_gray:
+                #     f = torch.cat(temp_feats, dim=0)
+                #     f = torch.mean(f, dim=1, keepdim=True)
+                # # elif PARAMS.use_hue:
+                # #     f = torch.cat(temp_feats, dim=0)
+                # #     f = rgb_to_hue_pytorch(f)
+                # else:
+                #     f = torch.ones((c.shape[0], 1), dtype=torch.float32)
                 if not PARAMS.use_depth_features:
+                    f = torch.cat(temp_feats, dim=0)
                     pointcloud_minibatch = {'coords': c, 'features': f}
                 else:
+                    intermediate_feats = torch.cat(temp_feats, dim=0)
+                    initial_feats = torch.ones((c.shape[0], 1), dtype=torch.float32)
                     pointcloud_minibatch = {'coords': c, 'initial_features': initial_feats, 'intermediate_features': intermediate_feats}
                 pointcloud_batch.append(pointcloud_minibatch)
 
