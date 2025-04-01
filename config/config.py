@@ -42,6 +42,7 @@ class Config():
             # use_magnitude_anglexy_hue: False
             # use_magnitude_anglexy_hue_ones: False
             # add the following lines to the config file
+            self.use_image_features = config.get('use_image_features')
             self.use_magnitude = config.get('use_magnitude')
             self.use_magnitude_hue = config.get('use_magnitude_hue')
             self.use_magnitude_ones = config.get('use_magnitude_ones')

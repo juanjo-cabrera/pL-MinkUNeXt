@@ -54,86 +54,151 @@ class EvaluationDataset():
         # pc_loader must be set in the inheriting class
         self.pc_loader: PointCloudLoader = None
 
-        self.processed_pcds = {}
+        #if PARAMS.aug_mode == 0:
+        if PARAMS.use_image_features == False:
+            database_pcds_files = []
+            query_cloudy_pcds_files = []
+            query_night_pcds_files = []
+            query_sunny_pcds_files = []
+            folders = os.listdir(database_path)
+            for folder in folders:
+                # check if the folder is a directory
+                if not os.path.isdir(database_path + folder):
+                    continue
+                database_folder_path = database_path + folder
+                database_files = os.listdir(database_folder_path)
+                database_files = [database_folder_path + '/' + file for file in database_files]
+                database_pcds_files.extend(database_files)
 
-        database_magnitude = database_path.replace('PCD_LARGE', 'MAGNITUDE')
-        if cloudy_query_path is not None:
-            cloudy_query_magnitude = cloudy_query_path.replace('PCD_LARGE', 'MAGNITUDE')
-        if night_query_path is not None:
-            night_query_magnitude = night_query_path.replace('PCD_LARGE', 'MAGNITUDE')
-        if sunny_query_path is not None:
-            sunny_query_magnitude = sunny_query_path.replace('PCD_LARGE', 'MAGNITUDE')
-     
-        # list all the files in the features_path
-        folders = os.listdir(database_magnitude)
-        # list the files of each folder
-        database_magnitude_files = []
-        database_angles_files = []
-        database_pcds_files = []
+                if cloudy_query_path is not None:
+                    query_cloudy_folder_path = cloudy_query_path + folder
+                    query_cloudy_files = os.listdir(query_cloudy_folder_path)
+                    query_cloudy_files = [query_cloudy_folder_path + '/' + file for file in query_cloudy_files]
+                    query_cloudy_pcds_files.extend(query_cloudy_files)
+                
+                if night_query_path is not None:
+                    query_night_folder_path = night_query_path + folder
+                    query_night_files = os.listdir(query_night_folder_path)
+                    query_night_files = [query_night_folder_path + '/' + file for file in query_night_files]
+                    query_night_pcds_files.extend(query_night_files)
 
-        query_cloudy_magnitude_files = []
-        query_cloudy_angles_files = []
-        query_cloudy_pcds_files = []
+                if sunny_query_path is not None:
+                    query_sunny_folder_path = sunny_query_path + folder
+                    query_sunny_files = os.listdir(query_sunny_folder_path)
+                    query_sunny_files = [query_sunny_folder_path + '/' + file for file in query_sunny_files]
+                    query_sunny_pcds_files.extend(query_sunny_files)
 
-        query_night_magnitude_files = []
-        query_night_angles_files = []
-        query_night_pcds_files = []
-
-        query_sunny_magnitude_files = []
-        query_sunny_angles_files = []
-        query_sunny_pcds_files = []
-
-        for folder in folders:
-            database_folder_path = database_magnitude + folder
-            database_files = os.listdir(database_folder_path)
-            database_files = [database_folder_path + '/' + file for file in database_files]
-            database_magnitude_files.extend(database_files)
-            database_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in database_files])
-            database_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in database_files])
-
+            self.database_pcds = self.process_pcds_only_ones(database_pcds_files)
             if cloudy_query_path is not None:
-                query_cloudy_folder_path = cloudy_query_magnitude + folder
-                query_cloudy_files = os.listdir(query_cloudy_folder_path)
-                query_cloudy_files = [query_cloudy_folder_path + '/' + file for file in query_cloudy_files]
-                query_cloudy_magnitude_files.extend(query_cloudy_files)
-                query_cloudy_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_cloudy_files])
-                query_cloudy_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_cloudy_files])
-            
+                self.query_cloudy_pcds = self.process_pcds_only_ones(query_cloudy_pcds_files)
             if night_query_path is not None:
-                query_night_folder_path = night_query_magnitude + folder
-                query_night_files = os.listdir(query_night_folder_path)
-                query_night_files = [query_night_folder_path + '/' + file for file in query_night_files]
-                query_night_magnitude_files.extend(query_night_files)
-                query_night_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_night_files])
-                query_night_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_night_files])
-
+                self.query_night_pcds = self.process_pcds_only_ones(query_night_pcds_files)
             if sunny_query_path is not None:
-                query_sunny_folder_path = sunny_query_magnitude + folder
-                query_sunny_files = os.listdir(query_sunny_folder_path)
-                query_sunny_files = [query_sunny_folder_path + '/' + file for file in query_sunny_files]
-                query_sunny_magnitude_files.extend(query_sunny_files)
-                query_sunny_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_sunny_files])
-                query_sunny_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_sunny_files])
+                self.query_sunny_pcds = self.process_pcds_only_ones(query_sunny_pcds_files)
+                                                                        
 
-        self.max_magnitude = PARAMS.max_magnitude
-        print('Max magnitude from training data', PARAMS.max_magnitude)
-       
-        database_magnitudes = [np.load(file) for file in database_magnitude_files]
-        database_angles = [np.load(file) for file in database_angles_files]     
-        self.database_pcds = self.process_pcds(database_magnitudes, database_angles, database_pcds_files)
-        if cloudy_query_path is not None:   
-            query_cloudy_magnitudes = [np.load(file) for file in query_cloudy_magnitude_files]
-            query_cloudy_angles = [np.load(file) for file in query_cloudy_angles_files]
-            self.query_cloudy_pcds = self.process_pcds(query_cloudy_magnitudes, query_cloudy_angles, query_cloudy_pcds_files)
-        if night_query_path is not None:
-            query_night_magnitudes = [np.load(file) for file in query_night_magnitude_files]
-            query_night_angles = [np.load(file) for file in query_night_angles_files]
-            self.query_night_pcds = self.process_pcds(query_night_magnitudes, query_night_angles, query_night_pcds_files)
-        if sunny_query_path is not None:
-            query_sunny_magnitudes = [np.load(file) for file in query_sunny_magnitude_files]
-            query_sunny_angles = [np.load(file) for file in query_sunny_angles_files]
-            self.query_sunny_pcds = self.process_pcds(query_sunny_magnitudes, query_sunny_angles, query_sunny_pcds_files)        
+        else:
+            database_magnitude = database_path.replace('PCD_LARGE', 'MAGNITUDE')
+            if cloudy_query_path is not None:
+                cloudy_query_magnitude = cloudy_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+            if night_query_path is not None:
+                night_query_magnitude = night_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+            if sunny_query_path is not None:
+                sunny_query_magnitude = sunny_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+        
+            # list all the files in the features_path
+            folders = os.listdir(database_magnitude)
+            # list the files of each folder
+            database_magnitude_files = []
+            database_angles_files = []
+            database_pcds_files = []
 
+            query_cloudy_magnitude_files = []
+            query_cloudy_angles_files = []
+            query_cloudy_pcds_files = []
+
+            query_night_magnitude_files = []
+            query_night_angles_files = []
+            query_night_pcds_files = []
+
+            query_sunny_magnitude_files = []
+            query_sunny_angles_files = []
+            query_sunny_pcds_files = []
+
+            for folder in folders:
+                database_folder_path = database_magnitude + folder
+                database_files = os.listdir(database_folder_path)
+                database_files = [database_folder_path + '/' + file for file in database_files]
+                database_magnitude_files.extend(database_files)
+                database_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in database_files])
+                database_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in database_files])
+
+                if cloudy_query_path is not None:
+                    query_cloudy_folder_path = cloudy_query_magnitude + folder
+                    query_cloudy_files = os.listdir(query_cloudy_folder_path)
+                    query_cloudy_files = [query_cloudy_folder_path + '/' + file for file in query_cloudy_files]
+                    query_cloudy_magnitude_files.extend(query_cloudy_files)
+                    query_cloudy_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_cloudy_files])
+                    query_cloudy_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_cloudy_files])
+                
+                if night_query_path is not None:
+                    query_night_folder_path = night_query_magnitude + folder
+                    query_night_files = os.listdir(query_night_folder_path)
+                    query_night_files = [query_night_folder_path + '/' + file for file in query_night_files]
+                    query_night_magnitude_files.extend(query_night_files)
+                    query_night_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_night_files])
+                    query_night_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_night_files])
+
+                if sunny_query_path is not None:
+                    query_sunny_folder_path = sunny_query_magnitude + folder
+                    query_sunny_files = os.listdir(query_sunny_folder_path)
+                    query_sunny_files = [query_sunny_folder_path + '/' + file for file in query_sunny_files]
+                    query_sunny_magnitude_files.extend(query_sunny_files)
+                    query_sunny_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_sunny_files])
+                    query_sunny_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_sunny_files])
+
+            self.max_magnitude = PARAMS.max_magnitude
+            print('Max magnitude from training data', PARAMS.max_magnitude)
+        
+            database_magnitudes = [np.load(file) for file in database_magnitude_files]
+            database_angles = [np.load(file) for file in database_angles_files]     
+            self.database_pcds = self.process_pcds(database_magnitudes, database_angles, database_pcds_files)
+            if cloudy_query_path is not None:   
+                query_cloudy_magnitudes = [np.load(file) for file in query_cloudy_magnitude_files]
+                query_cloudy_angles = [np.load(file) for file in query_cloudy_angles_files]
+                self.query_cloudy_pcds = self.process_pcds(query_cloudy_magnitudes, query_cloudy_angles, query_cloudy_pcds_files)
+            if night_query_path is not None:
+                query_night_magnitudes = [np.load(file) for file in query_night_magnitude_files]
+                query_night_angles = [np.load(file) for file in query_night_angles_files]
+                self.query_night_pcds = self.process_pcds(query_night_magnitudes, query_night_angles, query_night_pcds_files)
+            if sunny_query_path is not None:
+                query_sunny_magnitudes = [np.load(file) for file in query_sunny_magnitude_files]
+                query_sunny_angles = [np.load(file) for file in query_sunny_angles_files]
+                self.query_sunny_pcds = self.process_pcds(query_sunny_magnitudes, query_sunny_angles, query_sunny_pcds_files)        
+
+    def process_pcds_only_ones(self, pcds_files):
+        pcds = []
+        for i in range(len(pcds_files)):
+            pcd = o3d.io.read_point_cloud(pcds_files[i])
+            features = np.ones((np.asarray(pcd.points).shape[0], 1))
+            pcd = PointCloud(points=np.asarray(pcd.points), colors=features)
+            # filter the points by height
+            if PARAMS.height is not None:
+                pcd = self.filter_by_height(pcd, height=PARAMS.height)   
+              
+            if PARAMS.voxel_size is not None:            
+                pcd.points, pcd.colors = self.voxel_downsample_with_features(pcd.points, pcd.colors, voxel_size=PARAMS.voxel_size)
+              
+            points, colors = self.global_normalize(pcd, max_distance=PARAMS.max_distance)
+            pc = {}
+            pc['points'] = torch.tensor(points, dtype=torch.float)  
+            pc['colors'] = torch.tensor(colors, dtype=torch.float)  
+            pcds.append(pc)
+
+            pcds_dict = {}
+            pcds_dict['pcds'] = pcds
+            pcds_dict['files'] = pcds_files
+        return pcds_dict
     
     def process_pcds(self, magnitudes, angles, pcds_files):
         pcds = []
@@ -336,6 +401,10 @@ class EvaluationDataset():
         database_embeddings.append(self.get_latent_vectors(model, database_sets, device))
 
         for query_file in eval_query_files:
+            # check if the file exists
+            if not os.path.exists(os.path.join(self.dataset_path, query_file)):
+                print('File does not exist: {}'.format(query_file))
+                continue
             location_name = query_file.split('_')[0]
             p = os.path.join(self.dataset_path, query_file)
             try:

@@ -185,7 +185,7 @@ def do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluatio
             #if epoch >= 50:
             if epoch == 50 or epoch == 1:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_depth_estimators.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_data_augmentation.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -226,7 +226,7 @@ def do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluatio
                 # write results to a .txt withou deleting previous results
                 mean_mae = (mae_cloudy + mae_night + mae_sunny) / 3
                 with open(file_name, "a") as f:
-                    f.write(f'Dataset set: {PARAMS.dataset_folder}\n')
+                    f.write(f'Data augmentation: {PARAMS.aug_mode}\n')
                     f.write(f'{model_name} + epoch_ + {epoch}, {fa_recall_cloudy}, {fa_recall_night}, {fa_recall_sunny}, {fb_recall_cloudy}, {fb_recall_sunny}, {sa_recall_cloudy}, {sa_recall_night}, {sb_recall_cloudy}, {sb_recall_night}, {sb_recall_sunny}, {mean_recall}, {fa_one_percent_recall_cloudy}, {fa_one_percent_recall_night}, {fa_one_percent_recall_sunny}, {fb_one_percent_recall_cloudy}, {fb_one_percent_recall_sunny}, {sa_one_percent_recall_cloudy}, {sa_one_percent_recall_night}, {sb_one_percent_recall_cloudy}, {sb_one_percent_recall_night}, {sb_one_percent_recall_sunny}, {mean_one_percent_recall}\n')
                     print('Results saved to: ', file_name)
                     # Log mae_cloudy, mae_night, mae_sunny, mean_mae for wandb
@@ -305,9 +305,7 @@ if __name__ == '__main__':
     print('Batch size: ', PARAMS.batch_size)
             
     PARAMS.positives_per_query = 16
-    print('Positives per query: ', PARAMS.positives_per_query)                
-    PARAMS.aug_mode = 0
-    print('Augmentation mode: ', PARAMS.aug_mode)    
+    print('Positives per query: ', PARAMS.positives_per_query)                    
 
     PARAMS.batch_split_size = 16
     PARAMS.val_batch_size = 16
@@ -317,18 +315,21 @@ if __name__ == '__main__':
     PARAMS.negative_distance = 0.4
      
     #dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_SMALL/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_BASE/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE_TEACHER/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_SMALL/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_BASE/FRIBURGO_A/']
-    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_SMALL/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_BASE/FRIBURGO_A/']
-    for dataset_folder in dataset_folders:
-        PARAMS.dataset_folder = dataset_folder
-        print('Positive distance: ', PARAMS.positive_distance)
-        print('Negative distance: ', PARAMS.negative_distance)
-        train_pickle = 'training_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-        val_pickle = 'validation_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-        generate_pickle_two_sequences(PARAMS.TRAIN_FOLDER, train_pickle)
-        generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
-        PARAMS.train_file = train_pickle
-        PARAMS.val_file = val_pickle
-            
+    dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/FRIBURGO_A/'
+  
+    PARAMS.dataset_folder = dataset_folder
+    print('Positive distance: ', PARAMS.positive_distance)
+    print('Negative distance: ', PARAMS.negative_distance)
+    train_pickle = 'training_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+    val_pickle = 'validation_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+    generate_pickle_two_sequences(PARAMS.TRAIN_FOLDER, train_pickle)
+    generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
+    PARAMS.train_file = train_pickle
+    PARAMS.val_file = val_pickle
+    PARAMS.use_image_features == False
+    aug_modes = ['remove_block', 'remove_points', 'translation_xy', 'move_block2', 'scale_xy2', 'random_rotation']     
+    for aug_mode in aug_modes:
+        PARAMS.aug_mode = aug_mode
         # set up dataloaders
         dataloaders = make_dataloaders()
         print('Loading evaluation dataset...')
@@ -344,7 +345,8 @@ if __name__ == '__main__':
         PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'SAARBRUCKEN_B')
         generate_test_pickle(PARAMS.test_folder)
         evaluation_set_sb = EvaluationDataset(PARAMS.test_folder)
-        print('Evaluation dataset loaded.')            
+        print('Evaluation dataset loaded.')       
+        
         # Restablecer semillas aleatorias
         torch.manual_seed(42)
         torch.cuda.manual_seed(42)

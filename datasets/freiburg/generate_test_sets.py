@@ -96,6 +96,26 @@ def construct_query_and_database_sets(base_path, df_test, df_database, output_na
     output_to_file(database, base_path, output_name + '_evaluation_database.pickle')
     output_to_file(test, base_path, output_name + '_evaluation_query.pickle')
 
+def generate_test_pickle(base_path):
+    database_dir = os.path.join(base_path, 'Train')
+    cloudy_dir = os.path.join(base_path, 'TestCloudy')
+    night_dir = os.path.join(base_path, 'TestNight')
+    sunny_dir = os.path.join(base_path, 'TestSunny')
+    all_room_folders = sorted(os.listdir(os.path.join(base_path, 'Train')))
+    database_locations = get_pointcloud_positions(database_dir, all_room_folders)
+    cloudy_locations = get_pointcloud_positions(cloudy_dir, all_room_folders)
+
+    print("Number of testing pointclouds for cloudy " +  str(len(cloudy_locations['file'])))
+    construct_query_and_database_sets(base_path,  cloudy_locations, database_locations, output_name='cloudy')
+    if os.path.exists(night_dir):
+        night_locations = get_pointcloud_positions(night_dir, all_room_folders)
+        print("Number of testing pointclouds for night " +  str(len(night_locations['file'])))        
+        construct_query_and_database_sets(base_path,  night_locations, database_locations, output_name='night')
+
+    if os.path.exists(sunny_dir):
+        sunny_locations = get_pointcloud_positions(sunny_dir, all_room_folders)
+        print("Number of testing pointclouds for sunny " +  str(len(sunny_locations['file'])))
+        construct_query_and_database_sets(base_path,  sunny_locations, database_locations, output_name='sunny')
 
 if __name__ == '__main__':
     PARAMS.dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_A/'

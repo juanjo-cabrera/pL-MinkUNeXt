@@ -464,16 +464,13 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
 
 if __name__ == "__main__":
 
-    # Directorio fuente y destino
-    src_color_directory  = '/media/arvc/DATOS/Juanjo/Datasets/Augmented Freiburg/'
-    pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo_marigold/'
-    depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/Depth_Friburgo_marigold/'
-    exclude_directory_names = ['pretrained_models', 'TrainingDA', 'models', 'results', 'Validation_old', 'Validation2', 'TrainingBaseline2']
+    environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
+    # environments = ['FRIBURGO_A']
+    for environment in environments:
+        # Directorio fuente y destino
+        src_color_directory  = '/media/arvc/DATOS/Marcos/DATASETS/COLD/' + environment + '/'
+        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_MARIGOLD/' + environment + '/'
+        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_MARIGOLD/' + environment + '/'
+        exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'Train2']
 
-    # Ejecutar la función para copiar la estructura y procesar las imágenes
-    #copy_structure_and_process_images(src_directory, dst_directory, pcd_directory, exclude_directory_names, depth='metric')
-    copy_structure_and_process_images(src_color_directory, depth_directory, pcd_directory, exclude_directory_names)
-    # Hay algo en este código que elimina las imagenes de la carpeta de origen, esto no debería pasar
-    # y no se ha encontrado la causa del problema.
-
-    # Se ha encontrado el problema, en la función process_image se está guardando la imagen en la misma ubicación
+        copy_structure_and_process_images(src_color_directory, depth_directory, pcd_directory, exclude_directory_names)

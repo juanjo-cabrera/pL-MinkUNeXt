@@ -4,6 +4,7 @@ cuda_device: 'cuda:1' # 'cuda:0' or 'cuda:1'
 positive_distance: 0.5 # meters
 negative_distance: 0.7 # meters
 
+use_image_features: False
 use_rgb: False
 use_gray: False
 use_dino_features: False

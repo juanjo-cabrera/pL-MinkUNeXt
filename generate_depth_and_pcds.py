@@ -327,7 +327,7 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
 
 
     #encoder = 'vits' # or 'vits', 'vitb', 'vitg'
-    encoder = 'vitl'  # or 'vits', 'vitb'
+    encoder = 'vitb'  # or 'vits', 'vitb'
     model = DepthAnythingV2(encoder=encoder, features=model_configs[encoder]['features'], out_channels=model_configs[encoder]['out_channels'])
     print(model)
 
@@ -371,14 +371,14 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
                 shutil.copy(src_file_path, dst_file_path)
 
 if __name__ == "__main__":
-
-    # environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
-    environments = ['FRIBURGO_A']
+    PARAMS.cuda_device = 'cuda:0'
+    environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
+    #environments = ['FRIBURGO_A']
     for environment in environments:
         # Directorio fuente y destino
         src_color_directory  = '/media/arvc/DATOS/Marcos/DATASETS/COLD/' + environment + '/'
-        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/' + environment + '/'
-        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_LARGE/' + environment + '/'
-        exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'TestCloudy', 'TestSunny', 'TestNight', 'Train2', 'Validation']
+        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_BASE/' + environment + '/'
+        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_BASE/' + environment + '/'
+        exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'Train2']
 
         copy_structure_and_process_images(src_color_directory, depth_directory, pcd_directory, exclude_directory_names)

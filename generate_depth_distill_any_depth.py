@@ -238,6 +238,7 @@ def process_image_and_pcd(model, transform, image_path, src_color_dir, depth_dir
     h, w = val_img_np.shape[:2]
     # depth_colored_hwc = cv2.resize(depth_colored_hwc, (w, h), cv2.INTER_LINEAR)
     depth_gray_hwc = cv2.resize(depth_gray_hwc, (w, h), cv2.INTER_LINEAR)
+    # las imagenes son 360 grados, es decir, el extremo izquierdo y derecho estan conectados. Haz una interpolacion teniendo en cuenta que los pixeles de la izquierda y derecha deben ser similares
 
     # image_out = Image.fromarray(np.concatenate([depth_colored_hwc], axis=1))
     # show the image
@@ -331,13 +332,26 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
     # checkpoint = '/media/arvc/DATOS/Juanjo/weights/others_work/Distill-Any-Depth/model.safetensors'
     # model = load_model_by_name(arch_name, checkpoint, device)
     from huggingface_hub import hf_hub_download
-    model_kwargs = dict(
-        vitb=dict(
-            encoder='vitb',
-            features=128,
-            out_channels=[96, 192, 384, 768],
-        ),
-        vitl=dict(
+    # model_kwargs = dict(
+    #     vitb=dict(
+    #         encoder='vitb',
+    #         features=128,
+    #         out_channels=[96, 192, 384, 768],
+    #     ),
+    #     vitl=dict(
+    #         encoder="vitl", 
+    #         features=256, 
+    #         out_channels=[256, 512, 1024, 1024], 
+    #         use_bn=False, 
+    #         use_clstoken=False, 
+    #         max_depth=150.0, 
+    #         mode='disparity',
+    #         pretrain_type='dinov2',
+    #         del_mask_token=False
+    #     )
+    # )
+    model_kwargs = {
+        "large": dict(
             encoder="vitl", 
             features=256, 
             out_channels=[256, 512, 1024, 1024], 
@@ -347,14 +361,28 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
             mode='disparity',
             pretrain_type='dinov2',
             del_mask_token=False
+        ),
+        "base": dict(
+            encoder='vitb',
+            features=128,
+            out_channels=[96, 192, 384, 768],
+        ),
+        "small": dict(
+            encoder='vits',
+            features=64,
+            out_channels=[48, 96, 192, 384],
         )
-    )
+    }
 
    
-
-    checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"large/model.safetensors", repo_type="model")
+    model_name = 'small'
+    checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"{model_name}/model.safetensors", repo_type="model")
     model_weights = load_file(checkpoint_path) 
-    model = DepthAnything(**model_kwargs['vitl'])    
+    if model_name == 'large':
+        model = DepthAnything(**model_kwargs['large'])
+    else:
+        model = DepthAnythingV2(**model_kwargs[model_name])
+       
     model.load_state_dict(model_weights)
     model = model.to(device)  
 
@@ -399,14 +427,14 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
                 shutil.copy(src_file_path, dst_file_path)
 
 if __name__ == "__main__":
-    PARAMS.cuda_device = 'cuda:1'
+    PARAMS.cuda_device = 'cuda:0'
     environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
     #environments = ['FRIBURGO_A']
     for environment in environments:
         # Directorio fuente y destino
         src_color_directory  = '/media/arvc/DATOS/Marcos/DATASETS/COLD/' + environment + '/'
-        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/' + environment + '/'
-        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_DISTILL_ANY_DEPTH_LARGE/' + environment + '/'
+        pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_SMALL/' + environment + '/'
+        depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_DISTILL_ANY_DEPTH_SMALL/' + environment + '/'
         exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'Train2']
 
         copy_structure_and_process_images(src_color_directory, depth_directory, pcd_directory, exclude_directory_names)
