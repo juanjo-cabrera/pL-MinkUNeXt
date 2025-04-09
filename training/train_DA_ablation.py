@@ -295,7 +295,7 @@ if __name__ == '__main__':
     PARAMS.TRAIN_FOLDER = "Train_extended/"
     PARAMS.VAL_FOLDER = "Validation/"
 
-    PARAMS.cuda_device = 'cuda:0'
+    PARAMS.cuda_device = 'cuda:1'
     PARAMS.use_rgb = False
     PARAMS.use_gray = False
     PARAMS.use_video = False
@@ -326,8 +326,11 @@ if __name__ == '__main__':
     generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
     PARAMS.train_file = train_pickle
     PARAMS.val_file = val_pickle
-    PARAMS.use_image_features == False
-    aug_modes = ['remove_block', 'remove_points', 'translation_xy', 'move_block2', 'scale_xy2', 'random_rotation']     
+    PARAMS.use_image_features = False
+    aug_modes = ['remove_block', 'remove_points', 'translation_xy', 'move_block2', 'scale_xy2', 'random_rotation', '6depths0.2'] 
+    #aug_modes = ['6depths0.4']     
+    #aug_modes = ['only_best_effects0.4']
+    #aug_modes = ['elastic_distortion']
     for aug_mode in aug_modes:
         PARAMS.aug_mode = aug_mode
         # set up dataloaders

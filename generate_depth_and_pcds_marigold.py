@@ -35,7 +35,7 @@ from config.config import PARAMS
 def get_depthFM(raw_img):
     from depthfm import DepthFM
     if torch.cuda.is_available():
-        device = PARAMS.device
+        device = PARAMS.cuda_device
     else:
         device = "cpu"
 
@@ -53,7 +53,7 @@ def get_depthFM(raw_img):
     return depth
 
 def get_depth_marigold(raw_img, pipe):
-    device = PARAMS.device
+    device = PARAMS.cuda_device
     from marigold import MarigoldPipeline
     #dtype = torch.float32
     #variant = None
@@ -98,7 +98,7 @@ def get_depth_marigold(raw_img, pipe):
 def get_depth_v2(raw_img, encoder='vits'):
     from depth_anything_v2.dpt import DepthAnythingV2
     if torch.cuda.is_available():
-        device = PARAMS.device
+        device = PARAMS.cuda_device
     else:
         device = "cpu"
     # set cuda device
@@ -124,7 +124,7 @@ def get_depth_v2(raw_img, encoder='vits'):
 def get_metric_depth_v2(raw_img):
     from metric_depth.depth_anything_v2.dpt import DepthAnythingV2
     if torch.cuda.is_available():
-        device = PARAMS.device
+        device = PARAMS.cuda_device
     else:
         device = "cpu"
 
@@ -203,7 +203,7 @@ def load_lama_model(config_path, checkpoint_path):
     # model.load_state_dict(checkpoint_path['state_dict'])
     model.freeze()
     if torch.cuda.is_available():
-        device = PARAMS.device
+        device = PARAMS.cuda_device
     else:
         device = "cpu"
     model.to(device)
@@ -221,7 +221,7 @@ def pad_img_to_modulo(img, mod):
 
 def inpaint_with_lama(model, image, mask, device='cuda'):
     if torch.cuda.is_available():
-        device = PARAMS.device
+        device = PARAMS.cuda_device
     else:
         device = "cpu"
     torch.set_default_device(device)
@@ -256,7 +256,7 @@ def inpaint_with_lama(model, image, mask, device='cuda'):
 
 
 def process_image_and_pcd(image_path, src_color_dir, depth_dir, pcd_dir, pipe):
-    #plt.switch_backend('TkAgg')  # Specify the backend
+    plt.switch_backend('TkAgg')  # Specify the backend
     """
     Procesa la imagen y la guarda en la misma ubicación
     con '_depth' agregado al nombre del archivo.
@@ -284,22 +284,10 @@ def process_image_and_pcd(image_path, src_color_dir, depth_dir, pcd_dir, pipe):
             #processed_image_vitl = get_depth_v2(image_color, encoder='vitl')
             #image_depth = get_depth_marigold(image_color, pipe)
             # Muestra las 3 imágenes procesadas en una ventana
-            """
-            plt.figure(figsize=(15, 5))
-            plt.subplot(1, 3, 1)
-            plt.imshow(processed_image_vits, cmap='gray')
-            plt.title('VITS')
-            plt.subplot(1, 3, 2)
-            plt.imshow(processed_image_vitb, cmap='gray')
-            plt.title('VITB')
-            plt.subplot(1, 3, 3)
-            plt.imshow(processed_image_vitl, cmap='gray')
-            plt.title('VITL')
-            plt.show()
-            """
-            #image_depth = processed_image_vitl.copy()
-
-            #cv2.imshow('Processed Image', image_depth)    
+       
+            # show the depth image
+            plt.imshow(image_depth, cmap='gray')
+            plt.show() 
             
                 
             cv2.imwrite(new_image_path, image_depth)
@@ -463,7 +451,7 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
                 shutil.copy(src_file_path, dst_file_path)
 
 if __name__ == "__main__":
-
+    PARAMS.cuda_device = 'cuda:0'
     environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
     # environments = ['FRIBURGO_A']
     for environment in environments:

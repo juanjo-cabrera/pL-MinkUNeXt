@@ -98,13 +98,13 @@ class EvaluationDataset():
                                                                         
 
         else:
-            database_magnitude = database_path.replace('PCD_LARGE', 'MAGNITUDE')
+            database_magnitude = database_path.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'MAGNITUDE')
             if cloudy_query_path is not None:
-                cloudy_query_magnitude = cloudy_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+                cloudy_query_magnitude = cloudy_query_path.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'MAGNITUDE')
             if night_query_path is not None:
-                night_query_magnitude = night_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+                night_query_magnitude = night_query_path.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'MAGNITUDE')
             if sunny_query_path is not None:
-                sunny_query_magnitude = sunny_query_path.replace('PCD_LARGE', 'MAGNITUDE')
+                sunny_query_magnitude = sunny_query_path.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'MAGNITUDE')
         
             # list all the files in the features_path
             folders = os.listdir(database_magnitude)
@@ -131,7 +131,7 @@ class EvaluationDataset():
                 database_files = [database_folder_path + '/' + file for file in database_files]
                 database_magnitude_files.extend(database_files)
                 database_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in database_files])
-                database_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in database_files])
+                database_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_DISTILL_ANY_DEPTH_LARGE').replace('.npy', '.ply') for file in database_files])
 
                 if cloudy_query_path is not None:
                     query_cloudy_folder_path = cloudy_query_magnitude + folder
@@ -139,7 +139,7 @@ class EvaluationDataset():
                     query_cloudy_files = [query_cloudy_folder_path + '/' + file for file in query_cloudy_files]
                     query_cloudy_magnitude_files.extend(query_cloudy_files)
                     query_cloudy_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_cloudy_files])
-                    query_cloudy_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_cloudy_files])
+                    query_cloudy_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_DISTILL_ANY_DEPTH_LARGE').replace('.npy', '.ply') for file in query_cloudy_files])
                 
                 if night_query_path is not None:
                     query_night_folder_path = night_query_magnitude + folder
@@ -147,7 +147,7 @@ class EvaluationDataset():
                     query_night_files = [query_night_folder_path + '/' + file for file in query_night_files]
                     query_night_magnitude_files.extend(query_night_files)
                     query_night_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_night_files])
-                    query_night_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_night_files])
+                    query_night_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_DISTILL_ANY_DEPTH_LARGE').replace('.npy', '.ply') for file in query_night_files])
 
                 if sunny_query_path is not None:
                     query_sunny_folder_path = sunny_query_magnitude + folder
@@ -155,7 +155,7 @@ class EvaluationDataset():
                     query_sunny_files = [query_sunny_folder_path + '/' + file for file in query_sunny_files]
                     query_sunny_magnitude_files.extend(query_sunny_files)
                     query_sunny_angles_files.extend([file.replace('MAGNITUDE', 'ANGLE') for file in query_sunny_files])
-                    query_sunny_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in query_sunny_files])
+                    query_sunny_pcds_files.extend([file.replace('MAGNITUDE', 'PCD_DISTILL_ANY_DEPTH_LARGE').replace('.npy', '.ply') for file in query_sunny_files])
 
             self.max_magnitude = PARAMS.max_magnitude
             print('Max magnitude from training data', PARAMS.max_magnitude)
@@ -214,8 +214,29 @@ class EvaluationDataset():
                 x = np.cos(rad_angle)/2 + 0.5
                 y = np.sin(rad_angle)/2 + 0.5
                 
+                xmag = np.cos(rad_angle) * magnitude
+                ymag = np.sin(rad_angle) * magnitude
+                # global normalize the xmag and ymag
+                xmag = (xmag / (2 * PARAMS.max_xymag)) + 0.5
+                ymag = (ymag / (2 * PARAMS.max_xymag)) + 0.5
+            
+
                 if PARAMS.use_magnitude:
                     features = magnitude
+                elif PARAMS.use_xymag:
+                    features = np.column_stack((xmag, ymag))
+                elif PARAMS.use_rgb:
+                    features = np.asarray(pcd.colors)
+                    # normalize the colors to [0.5, 1.5]
+                    features = features + 0.5
+                elif PARAMS.use_gray:
+                    grey = np.mean(np.asarray(pcd.colors), axis=1).reshape(-1, 1)
+                    features = grey + 0.5
+                elif PARAMS.use_magnitude_anglexy_gray:
+                    grey = np.mean(np.asarray(pcd.colors), axis=1).reshape(-1, 1)
+                    # grey between 0.5 and 1.5
+                    grey = grey + 0.5
+                    features = np.column_stack((magnitude, x, y, grey))
                 elif PARAMS.use_angle:
                     angle = (angle / 360.0)
                     features = angle + 0.5
@@ -248,6 +269,7 @@ class EvaluationDataset():
                 elif PARAMS.use_magnitude_anglexy_hue_grey:
                     hue = self.rgb_to_hue(np.asarray(pcd.colors))
                     grey = np.mean(np.asarray(pcd.colors), axis=1).reshape(-1, 1)
+                    grey = grey + 0.5
                     features = np.column_stack((magnitude, x, y, hue, grey))
                 elif PARAMS.use_magnitude_angle_hue_grey:
                     angle = (angle / 360.0) + 0.5

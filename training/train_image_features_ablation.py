@@ -183,9 +183,9 @@ def do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluatio
         # evaluate the model 
         if 'val' in phases:
             #if epoch >= 50:
-            if epoch == 50 or epoch == 1:
+            if epoch % 10 == 0 or epoch ==1:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_depth_estimators.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_image_features2.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -226,7 +226,36 @@ def do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluatio
                 # write results to a .txt withou deleting previous results
                 mean_mae = (mae_cloudy + mae_night + mae_sunny) / 3
                 with open(file_name, "a") as f:
-                    f.write(f'Dataset set: {PARAMS.dataset_folder}\n')
+                    if PARAMS.use_magnitude:
+                        f.write('Feature: Magnitude\n')
+                    if PARAMS.use_hue:
+                        f.write('Feature: Hue\n')
+                    if PARAMS.use_magnitude_hue:
+                        f.write('Feature: Magnitude + Hue\n')
+                    if PARAMS.use_magnitude_ones:
+                        f.write('Feature: Magnitude + Ones\n')
+                    if PARAMS.use_angle:
+                        f.write('Feature: Angle\n')
+                    if PARAMS.use_anglexy:
+                        f.write('Feature: AngleXY\n')
+                    if PARAMS.use_anglexy_hue:
+                        f.write('Feature: AngleXY + Hue\n')
+                    if PARAMS.use_anglexy_ones:
+                        f.write('Feature: AngleXY + Ones\n')
+                    if PARAMS.use_magnitude_anglexy_hue:
+                        f.write('Feature: Magnitude + AngleXY + Hue\n')
+                    if PARAMS.use_magnitude_anglexy_hue_ones:
+                        f.write('Feature: Magnitude + AngleXY + Hue + Ones\n')
+                    if PARAMS.use_magnitude_angle_hue:
+                        f.write('Feature: Magnitude + Angle + Hue\n')
+                    if PARAMS.use_magnitude_anglexy_hue_grey:
+                        f.write('Feature: Magnitude + AngleXY + Hue + Grey\n')
+                    if PARAMS.use_magnitude_angle_hue_grey:
+                        f.write('Feature: Magnitude + Angle + Hue + Grey\n')
+                    if PARAMS.use_magnitude_anglexy_hue_rgb:
+                        f.write('Feature: Magnitude + AngleXY + Hue + RGB\n')
+                    if PARAMS.use_magnitude_angle_hue_rgb:
+                        f.write('Feature: Magnitude + Angle + Hue + RGB\n')
                     f.write(f'{model_name} + epoch_ + {epoch}, {fa_recall_cloudy}, {fa_recall_night}, {fa_recall_sunny}, {fb_recall_cloudy}, {fb_recall_sunny}, {sa_recall_cloudy}, {sa_recall_night}, {sb_recall_cloudy}, {sb_recall_night}, {sb_recall_sunny}, {mean_recall}, {fa_one_percent_recall_cloudy}, {fa_one_percent_recall_night}, {fa_one_percent_recall_sunny}, {fb_one_percent_recall_cloudy}, {fb_one_percent_recall_sunny}, {sa_one_percent_recall_cloudy}, {sa_one_percent_recall_night}, {sb_one_percent_recall_cloudy}, {sb_one_percent_recall_night}, {sb_one_percent_recall_sunny}, {mean_one_percent_recall}\n')
                     print('Results saved to: ', file_name)
                     # Log mae_cloudy, mae_night, mae_sunny, mean_mae for wandb
@@ -285,12 +314,14 @@ if __name__ == '__main__':
 
 
     PARAMS.height = -0.25
-    
+    PARAMS.voxel_size = 0.05
     print('Voxel size: ', PARAMS.voxel_size)
     print('Height: ', PARAMS.height)
                             
-    PARAMS.epochs = 50
-    PARAMS.scheduler_milestones = [20, 30]
+    # PARAMS.epochs = 50
+    # PARAMS.scheduler_milestones = [20, 30]
+    PARAMS.epochs = 200
+    PARAMS.scheduler_milestones = [150, 180]
 
     PARAMS.TRAIN_FOLDER = "Train_extended/"
     PARAMS.VAL_FOLDER = "Validation/"
@@ -305,86 +336,96 @@ if __name__ == '__main__':
     print('Batch size: ', PARAMS.batch_size)
             
     PARAMS.positives_per_query = 16
-    print('Positives per query: ', PARAMS.positives_per_query)                
-    PARAMS.aug_mode = 0
-    print('Augmentation mode: ', PARAMS.aug_mode)    
+    print('Positives per query: ', PARAMS.positives_per_query)                    
 
     PARAMS.batch_split_size = 16
     PARAMS.val_batch_size = 16
     PARAMS.add_noise = False
-    PARAMS.use_gradients = False
-    PARAMS.use_image_features = False
+    PARAMS.use_gradients = True
     PARAMS.positive_distance = 0.4
     PARAMS.negative_distance = 0.4
      
     #dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_SMALL/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_BASE/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE_TEACHER/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_SMALL/FRIBURGO_A/', '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_BASE/FRIBURGO_A/']
-    dataset_folders = ['/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/FRIBURGO_A/']
-    voxel_sizes = [0.1, 0.2]
-    for voxel_size in voxel_sizes:
-        PARAMS.voxel_size = voxel_size
-        print('Voxel size: ', PARAMS.voxel_size)
+    dataset_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/FRIBURGO_A/'
+  
+    PARAMS.dataset_folder = dataset_folder
+    print('Positive distance: ', PARAMS.positive_distance)
+    print('Negative distance: ', PARAMS.negative_distance)
+    train_pickle = 'training_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+    val_pickle = 'validation_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
+    generate_pickle_two_sequences(PARAMS.TRAIN_FOLDER, train_pickle)
+    generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
+    PARAMS.train_file = train_pickle
+    PARAMS.val_file = val_pickle
+    PARAMS.use_image_features = True
 
-        for dataset_folder in dataset_folders:
-            PARAMS.dataset_folder = dataset_folder
-            print('Positive distance: ', PARAMS.positive_distance)
-            print('Negative distance: ', PARAMS.negative_distance)
-            train_pickle = 'training_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-            val_pickle = 'validation_queries_2seq_pos' + str(PARAMS.positive_distance) + 'neg' + str(PARAMS.negative_distance) + '.pickle'
-            generate_pickle_two_sequences(PARAMS.TRAIN_FOLDER, train_pickle)
-            generate_pickle(PARAMS.VAL_FOLDER, val_pickle)
-            PARAMS.train_file = train_pickle
-            PARAMS.val_file = val_pickle
+    PARAMS.aug_mode = '6depths0.4'
+    # PARAMS.aug_mode = 'only_best_effects0.5'
+    use_features = ['use_magnitude_anglexy_gray', 'use_magnitude_anglexy_hue', 'use_magnitude_anglexy_hue_grey']
+    #use_features = ['use_magnitude_anglexy_hue']
+    for feature in use_features:
+        if feature == 'use_ones':
+            PARAMS.use_gradients = False
+        else:
+            PARAMS.use_gradients = True
+            setattr(PARAMS, feature, True)
+            print('Feature: ', feature)
+            # set the other features to False
+            for f in use_features:
+                if f != feature:
+                    setattr(PARAMS, f, False)
                 
-            # set up dataloaders
-            dataloaders = make_dataloaders()
-            print('Loading evaluation dataset...')
-            generate_test_pickle(PARAMS.dataset_folder)
-            evaluation_set_fa = EvaluationDataset(PARAMS.dataset_folder)
-            # replace FRIBURGO_A with FRIBURGO_B
-            PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'FRIBURGO_B')
-            generate_test_pickle(PARAMS.test_folder)
-            evaluation_set_fb = EvaluationDataset(PARAMS.test_folder)
-            PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'SAARBRUCKEN_A')
-            generate_test_pickle(PARAMS.test_folder)
-            evaluation_set_sa = EvaluationDataset(PARAMS.test_folder)
-            PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'SAARBRUCKEN_B')
-            generate_test_pickle(PARAMS.test_folder)
-            evaluation_set_sb = EvaluationDataset(PARAMS.test_folder)
-            print('Evaluation dataset loaded.')            
-            # Restablecer semillas aleatorias
-            torch.manual_seed(42)
-            torch.cuda.manual_seed(42)
-            np.random.seed(42)
-            random.seed(42)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            # Load a pretrained model
-            model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
-            if PARAMS.weights_path is not None:
-                model.load_state_dict(torch.load(PARAMS.weights_path))
-                print('Model loaded from: {}'.format(PARAMS.weights_path))
-            if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:
-                model.conv0p1s1 = ME.MinkowskiConvolution(
-                    2, 32, kernel_size=5, dimension=3)
-            elif PARAMS.use_rgb or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy or PARAMS.use_magnitude_angle_hue:
-                model.conv0p1s1 = ME.MinkowskiConvolution(    
-                    3, 32, kernel_size=5, dimension=3)
-            elif PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_angle_hue_grey:
-                model.conv0p1s1 = ME.MinkowskiConvolution(
-                    4, 32, kernel_size=5, dimension=3)
-            elif PARAMS.use_magnitude_anglexy_hue_ones or PARAMS.use_magnitude_anglexy_hue_grey:
-                model.conv0p1s1 = ME.MinkowskiConvolution(
-                    5, 32, kernel_size=5, dimension=3)
-            elif PARAMS.use_magnitude_angle_hue_rgb:
-                model.conv0p1s1 = ME.MinkowskiConvolution(
-                    6, 32, kernel_size=5, dimension=3)
-            elif PARAMS.use_magnitude_anglexy_hue_rgb:
-                model.conv0p1s1 = ME.MinkowskiConvolution(
-                    7, 32, kernel_size=5, dimension=3)
-            
-            do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluation_set_sa, evaluation_set_sb)
+        # set up dataloaders
+        dataloaders = make_dataloaders()
+        print('Loading evaluation dataset...')
+        generate_test_pickle(PARAMS.dataset_folder)
+        evaluation_set_fa = EvaluationDataset(PARAMS.dataset_folder)
+        # replace FRIBURGO_A with FRIBURGO_B
+        PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'FRIBURGO_B')
+        generate_test_pickle(PARAMS.test_folder)
+        evaluation_set_fb = EvaluationDataset(PARAMS.test_folder)
+        PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'SAARBRUCKEN_A')
+        generate_test_pickle(PARAMS.test_folder)
+        evaluation_set_sa = EvaluationDataset(PARAMS.test_folder)
+        PARAMS.test_folder = dataset_folder.replace('FRIBURGO_A', 'SAARBRUCKEN_B')
+        generate_test_pickle(PARAMS.test_folder)
+        evaluation_set_sb = EvaluationDataset(PARAMS.test_folder)
+        print('Evaluation dataset loaded.')       
+        
+        # Restablecer semillas aleatorias
+        torch.manual_seed(42)
+        torch.cuda.manual_seed(42)
+        np.random.seed(42)
+        random.seed(42)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        # Load a pretrained model
+        model = MinkUNeXt(in_channels=1, out_channels=512, D=3)
+        if PARAMS.weights_path is not None:
+            model.load_state_dict(torch.load(PARAMS.weights_path))
+            print('Model loaded from: {}'.format(PARAMS.weights_path))
+        if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy or PARAMS.use_xymag:
+            model.conv0p1s1 = ME.MinkowskiConvolution(
+                2, 32, kernel_size=5, dimension=3)
+        elif PARAMS.use_rgb or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy or PARAMS.use_magnitude_angle_hue:
+            model.conv0p1s1 = ME.MinkowskiConvolution(    
+                3, 32, kernel_size=5, dimension=3)
+        elif PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_angle_hue_grey or PARAMS.use_magnitude_anglexy_gray:
+            model.conv0p1s1 = ME.MinkowskiConvolution(
+                4, 32, kernel_size=5, dimension=3)
+        elif PARAMS.use_magnitude_anglexy_hue_ones or PARAMS.use_magnitude_anglexy_hue_grey:
+            model.conv0p1s1 = ME.MinkowskiConvolution(
+                5, 32, kernel_size=5, dimension=3)
+        elif PARAMS.use_magnitude_angle_hue_rgb:
+            model.conv0p1s1 = ME.MinkowskiConvolution(
+                6, 32, kernel_size=5, dimension=3)
+        elif PARAMS.use_magnitude_anglexy_hue_rgb:
+            model.conv0p1s1 = ME.MinkowskiConvolution(
+                7, 32, kernel_size=5, dimension=3)
+        
+        do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluation_set_sa, evaluation_set_sb)
 
-            # empty cache
-            torch.cuda.empty_cache()
-                                
+        # empty cache
+        torch.cuda.empty_cache()
                             
+                        

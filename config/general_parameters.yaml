@@ -14,6 +14,8 @@ use_video: False
 use_gradients: False
 use_magnitude: False
 max_magnitude: 965.84576
+max_xymag: 965.84576
+use_xymag: False
 use_magnitude_hue: False
 use_magnitude_ones: False
 use_angle: False
@@ -23,6 +25,7 @@ use_anglexy_ones: False
 use_magnitude_anglexy: False
 use_magnitude_anglexy_hue: False
 use_magnitude_anglexy_hue_ones: False
+use_magnitude_anglexy_gray: False
 use_magnitude_angle_hue: False
 use_magnitude_anglexy_hue_grey: False
 use_magnitude_angle_hue_grey: False

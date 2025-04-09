@@ -92,44 +92,86 @@ class TrainingDataset(Dataset):
         if PARAMS.use_image_features == False:
             pcds_folder1 = os.listdir(dataset_path)
             pcds_folder2 = os.listdir(dataset2_path)
-            pcds_files = []
+            pcds_large_files = []
+            pcds_base_files = []
+            pcds_small_files = []
+            pcds_large_dav2_files = []
+            pcds_base_dav2_files = []
+            pcds_small_dav2_files = []
             for folder in pcds_folder1:
                 # check if the folder is a folder
                 if os.path.isdir(dataset_path + folder):
                     folder_path = dataset_path + folder
                     files = os.listdir(folder_path)
-                    files = [folder_path + '/' + file for file in files]
-                    pcds_files.extend(files)
+                    large_files = [folder_path + '/' + file for file in files]
+                    pcds_large_files.extend(large_files)
+                    if not 'Validation' in dataset_path:
+                        base_files = [file.replace('LARGE', 'BASE') for file in large_files]
+                        small_files = [file.replace('LARGE', 'SMALL') for file in large_files]
+                        pcds_base_files.extend(base_files)
+                        pcds_small_files.extend(small_files)
+                        base_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_BASE') for file in large_files]
+                        small_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_SMALL') for file in large_files]
+                        large_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_LARGE') for file in large_files]
+                        pcds_base_dav2_files.extend(base_dav2_files)
+                        pcds_small_dav2_files.extend(small_dav2_files)
+                        pcds_large_dav2_files.extend(large_dav2_files)
+                        
+                    
             if not 'Validation' in dataset_path:
                 for folder in pcds_folder2:
                     # check if the folder is a folder
                     if os.path.isdir(dataset2_path + folder):
                         folder_path = dataset2_path + folder
                         files = os.listdir(folder_path)
-                        files = [folder_path + '/' + file for file in files]
-                        pcds_files.extend(files)
+                        large_files = [folder_path + '/' + file for file in files]
+                        pcds_large_files.extend(large_files)
+                        base_files = [file.replace('LARGE', 'BASE') for file in large_files]
+                        small_files = [file.replace('LARGE', 'SMALL') for file in large_files]
+                        base_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_BASE') for file in large_files]
+                        small_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_SMALL') for file in large_files]
+                        large_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_LARGE') for file in large_files]
+                        pcds_base_files.extend(base_files)
+                        pcds_small_files.extend(small_files)
+                        pcds_base_dav2_files.extend(base_dav2_files)
+                        pcds_small_dav2_files.extend(small_dav2_files)
+                        pcds_large_dav2_files.extend(large_dav2_files)
+
             pcds_large = []
-            for i in range(len(pcds_files)):
-                pcd_large = o3d.io.read_point_cloud(pcds_files[i])
-                pcd_large = PointCloud(points=np.asarray(pcd_large.points), colors=np.ones((np.asarray(pcd_large.points).shape[0], 1)))
-                if PARAMS.height is not None:
-                    pcd_large = self.filter_by_height(pcd_large, height=PARAMS.height)
-                if PARAMS.voxel_size is not None:
-                    pcd_large.points, pcd_large.colors = self.voxel_downsample_with_features(pcd_large.points, pcd_large.colors, voxel_size=PARAMS.voxel_size)
-                
-                points_large, colors_large = self.global_normalize(pcd_large, max_distance=PARAMS.max_distance)
-                pc_large = {}
-                pc_large['points'] = points_large
-                pc_large['colors'] = colors_large
+            pcds_base = []
+            pcds_small = []
+            pcds_large_dav2 = []
+            pcds_base_dav2 = []
+            pcds_small_dav2 = []
+            for i in range(len(pcds_large_files)):
+                pc_large = self.load_and_process_pcd(pcds_large_files[i])
                 pcds_large.append(pc_large)
+                if not 'Validation' in dataset_path:
+                    pc_base = self.load_and_process_pcd(pcds_base_files[i])
+                    pcds_base.append(pc_base)
+                    pc_small = self.load_and_process_pcd(pcds_small_files[i])
+                    pcds_small.append(pc_small)
+                    pc_large_dav2 = self.load_and_process_pcd(pcds_large_dav2_files[i])
+                    pcds_large_dav2.append(pc_large_dav2)
+                    pc_base_dav2 = self.load_and_process_pcd(pcds_base_dav2_files[i])
+                    pcds_base_dav2.append(pc_base_dav2)
+                    pc_small_dav2 = self.load_and_process_pcd(pcds_small_dav2_files[i])
+                    pcds_small_dav2.append(pc_small_dav2)
+
             self.processed_pcds['large'] = pcds_large
             print('Point clouds loaded: ', len(pcds_large))
-            self.processed_pcds['files'] = pcds_files
-            print('Files loaded: ', len(pcds_files))
+            self.processed_pcds['files'] = pcds_large_files
+            print('Files loaded: ', len(pcds_large_files))
+            if not 'Validation' in dataset_path:
+                self.processed_pcds['base'] = pcds_base
+                self.processed_pcds['small'] = pcds_small
+                self.processed_pcds['large_dav2'] = pcds_large_dav2
+                self.processed_pcds['base_dav2'] = pcds_base_dav2
+                self.processed_pcds['small_dav2'] = pcds_small_dav2
         else:
             # magnitude_path = dataset_path.replace('Validation', 'Train_extended')
-            magnitude_path1 = dataset_path.replace('PCD_LARGE', 'MAGNITUDE')
-            magnitude_path2 = dataset2_path.replace('PCD_LARGE', 'MAGNITUDE')
+            magnitude_path1 = dataset_path.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'MAGNITUDE')
+            magnitude_path2 = dataset2_path.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'MAGNITUDE')
         
             # list all the files in the features_path
             magnitude_folders1 = os.listdir(magnitude_path1)
@@ -139,6 +181,12 @@ class TrainingDataset(Dataset):
             magnitude_files = []
             angles_files = []
             pcds_large_files = []
+            pcds_base_files = []
+            pcds_small_files = []
+            pcds_large_dav2_files = []
+            pcds_base_dav2_files = []
+            pcds_small_dav2_files = []
+
             for folder in magnitude_folders1:
                 folder_path = magnitude_path1 + folder
                 files = os.listdir(folder_path)
@@ -146,9 +194,13 @@ class TrainingDataset(Dataset):
                 magnitude_files.extend(files)
                 angle_files = [file.replace('MAGNITUDE', 'ANGLE') for file in files]
                 angles_files.extend(angle_files)
-                pcds_large_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in files])
-                pcds_base_files = [file.replace('PCD_LARGE', 'PCD_BASE') for file in pcds_large_files]
-                pcds_small_files = [file.replace('PCD_LARGE', 'PCD_SMALL') for file in pcds_large_files]
+                pcds_large_files.extend([file.replace('MAGNITUDE', 'PCD_DISTILL_ANY_DEPTH_LARGE').replace('.npy', '.ply') for file in files])
+                pcds_base_files = [file.replace('LARGE', 'BASE') for file in pcds_large_files]
+                pcds_small_files = [file.replace('LARGE', 'SMALL') for file in pcds_large_files]
+                pcds_large_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_LARGE') for file in pcds_large_files]
+                pcds_base_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_BASE') for file in pcds_large_files]
+                pcds_small_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_SMALL') for file in pcds_large_files]
+              
             if not 'Validation' in dataset_path:
                 for folder in magnitude_folders2:
                     folder_path = magnitude_path2 + folder
@@ -157,24 +209,41 @@ class TrainingDataset(Dataset):
                     magnitude_files.extend(files)
                     angle_files = [file.replace('MAGNITUDE', 'ANGLE') for file in files]
                     angles_files.extend(angle_files)
-                    pcds_large_files.extend([file.replace('MAGNITUDE', 'PCD_LARGE').replace('.npy', '.ply') for file in files])
-                    pcds_base_files = [file.replace('PCD_LARGE', 'PCD_BASE') for file in pcds_large_files]
-                    pcds_small_files = [file.replace('PCD_LARGE', 'PCD_SMALL') for file in pcds_large_files]
+                    pcds_large_files.extend([file.replace('MAGNITUDE', 'PCD_DISTILL_ANY_DEPTH_LARGE').replace('.npy', '.ply') for file in files])
+                    pcds_base_files = [file.replace('LARGE', 'BASE') for file in pcds_large_files]
+                    pcds_small_files = [file.replace('LARGE', 'SMALL') for file in pcds_large_files]
+                    pcds_large_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_LARGE') for file in pcds_large_files]
+                    pcds_base_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_BASE') for file in pcds_large_files]
+                    pcds_small_dav2_files = [file.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_SMALL') for file in pcds_large_files]
             # load the features
             magnitudes = [np.load(file) for file in magnitude_files]
+            angles = [np.load(file) for file in angles_files]
+            xmag = [np.cos(np.deg2rad(angle)) * magnitude for angle, magnitude in zip(angles, magnitudes)]
+            ymag = [np.sin(np.deg2rad(angle)) * magnitude for angle, magnitude in zip(angles, magnitudes)]
             if not 'Validation' in dataset_path:
                 self.max_magnitude = np.max(magnitudes)
+                self.max_xmag = np.max(xmag)
+                self.max_ymag = np.max(ymag)
+                self.max_xymag = np.max(np.sqrt(np.square(xmag) + np.square(ymag)))
+                PARAMS.max_xymag = self.max_xymag
                 PARAMS.max_magnitude = self.max_magnitude
             print('Max magnitude computed: ', PARAMS.max_magnitude)
-            angles = [np.load(file) for file in angles_files]
+            print('Max xymag computed: ', PARAMS.max_xymag)
+            
             pcds_large = []
             pcds_base = []
             pcds_small = []
+            pcds_large_dav2 = []
+            pcds_base_dav2 = []
+            pcds_small_dav2 = []
             for i in range(len(magnitudes)):
                 pcd_large = o3d.io.read_point_cloud(pcds_large_files[i])
                 if not 'Validation' in dataset_path:
                     pcd_base = o3d.io.read_point_cloud(pcds_base_files[i])
                     pcd_small = o3d.io.read_point_cloud(pcds_small_files[i])
+                    pcd_large_dav2 = o3d.io.read_point_cloud(pcds_large_dav2_files[i])
+                    pcd_base_dav2 = o3d.io.read_point_cloud(pcds_base_dav2_files[i])
+                    pcd_small_dav2 = o3d.io.read_point_cloud(pcds_small_dav2_files[i])
                 if PARAMS.use_gradients:
                     magnitude = magnitudes[i].reshape(-1, 1)
                     angle = angles[i].reshape(-1, 1)
@@ -185,8 +254,29 @@ class TrainingDataset(Dataset):
                     x = np.cos(rad_angle)/2 + 0.5
                     y = np.sin(rad_angle)/2 + 0.5
                     
+                    xmag = np.cos(rad_angle) * magnitude
+                    ymag = np.sin(rad_angle) * magnitude
+                    # global normalize the xmag and ymag
+                    xmag = (xmag / (2 * PARAMS.max_xymag)) + 0.5
+                    ymag = (ymag / (2 * PARAMS.max_xymag)) + 0.5
+                    
                     if PARAMS.use_magnitude:
                         features = magnitude
+                    elif PARAMS.use_xymag:
+                        features = np.column_stack((xmag, ymag))
+              
+                    elif PARAMS.use_rgb:
+                        features = np.asarray(pcd_large.colors)
+                        # normalize the colors to [0.5, 1.5]
+                        features = features + 0.5
+                    elif PARAMS.use_gray:
+                        grey = np.mean(np.asarray(pcd_large.colors), axis=1).reshape(-1, 1)
+                        features = grey + 0.5
+                    elif PARAMS.use_magnitude_anglexy_gray:
+                        grey = np.mean(np.asarray(pcd_large.colors), axis=1).reshape(-1, 1)
+                        # grey between 0.5 and 1.5
+                        grey = grey + 0.5
+                        features = np.column_stack((magnitude, x, y, grey))
                     elif PARAMS.use_angle:
                         angle = (angle / 360.0)
                         features = angle + 0.5
@@ -220,6 +310,7 @@ class TrainingDataset(Dataset):
                     elif PARAMS.use_magnitude_anglexy_hue_grey:
                         hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
                         grey = np.mean(np.asarray(pcd_large.colors), axis=1).reshape(-1, 1)
+                        grey = grey + 0.5
                         features = np.column_stack((magnitude, x, y, hue, grey))
                     elif PARAMS.use_magnitude_angle_hue_grey:
                         angle = (angle / 360.0) + 0.5
@@ -244,13 +335,19 @@ class TrainingDataset(Dataset):
                 if not 'Validation' in dataset_path:
                     pcd_base = PointCloud(points=np.asarray(pcd_base.points), colors=features)
                     pcd_small = PointCloud(points=np.asarray(pcd_small.points), colors=features)
+                    pcd_large_dav2 = PointCloud(points=np.asarray(pcd_large_dav2.points), colors=features)
+                    pcd_base_dav2 = PointCloud(points=np.asarray(pcd_base_dav2.points), colors=features)
+                    pcd_small_dav2 = PointCloud(points=np.asarray(pcd_small_dav2.points), colors=features)
 
                 # filter the points by height
                 if PARAMS.height is not None:
                     pcd_large = self.filter_by_height(pcd_large, height=PARAMS.height)   
                     if not 'Validation' in dataset_path:
                         pcd_base = self.filter_by_height(pcd_base, height=PARAMS.height)
-                        pcd_small = self.filter_by_height(pcd_small, height=PARAMS.height)    
+                        pcd_small = self.filter_by_height(pcd_small, height=PARAMS.height) 
+                        pcd_large_dav2 = self.filter_by_height(pcd_large_dav2, height=PARAMS.height)
+                        pcd_base_dav2 = self.filter_by_height(pcd_base_dav2, height=PARAMS.height)
+                        pcd_small_dav2 = self.filter_by_height(pcd_small_dav2, height=PARAMS.height)   
                 # show pointcloud
                 #o3d.visualization.draw_geometries([pcd])
                 if PARAMS.voxel_size is not None:            
@@ -258,11 +355,17 @@ class TrainingDataset(Dataset):
                     if not 'Validation' in dataset_path:
                         pcd_base.points, pcd_base.colors = self.voxel_downsample_with_features(pcd_base.points, pcd_base.colors, voxel_size=PARAMS.voxel_size)
                         pcd_small.points, pcd_small.colors = self.voxel_downsample_with_features(pcd_small.points, pcd_small.colors, voxel_size=PARAMS.voxel_size)
+                        pcd_large_dav2.points, pcd_large_dav2.colors = self.voxel_downsample_with_features(pcd_large_dav2.points, pcd_large_dav2.colors, voxel_size=PARAMS.voxel_size)
+                        pcd_base_dav2.points, pcd_base_dav2.colors = self.voxel_downsample_with_features(pcd_base_dav2.points, pcd_base_dav2.colors, voxel_size=PARAMS.voxel_size)
+                        pcd_small_dav2.points, pcd_small_dav2.colors = self.voxel_downsample_with_features(pcd_small_dav2.points, pcd_small_dav2.colors, voxel_size=PARAMS.voxel_size)
 
                 points_large, colors_large = self.global_normalize(pcd_large, max_distance=PARAMS.max_distance)
                 if not 'Validation' in dataset_path:
                     points_base, colors_base = self.global_normalize(pcd_base, max_distance=PARAMS.max_distance)
                     points_small, colors_small = self.global_normalize(pcd_small, max_distance=PARAMS.max_distance)
+                    points_large_dav2, colors_large_dav2 = self.global_normalize(pcd_large_dav2, max_distance=PARAMS.max_distance)
+                    points_base_dav2, colors_base_dav2 = self.global_normalize(pcd_base_dav2, max_distance=PARAMS.max_distance)
+                    points_small_dav2, colors_small_dav2 = self.global_normalize(pcd_small_dav2, max_distance=PARAMS.max_distance)
                 
                 pc_large = {}
                 pc_large['points'] = points_large
@@ -272,20 +375,50 @@ class TrainingDataset(Dataset):
                     pc_base = {}
                     pc_base['points'] = points_base
                     pc_base['colors'] = colors_base
+                    pcds_base.append(pc_base)
+
                     pc_small = {}
                     pc_small['points'] = points_small
-                    pc_small['colors'] = colors_small            
-                    pcds_base.append(pc_base)
+                    pc_small['colors'] = colors_small    
                     pcds_small.append(pc_small)
+
+                    pc_large_dav2 = {}
+                    pc_large_dav2['points'] = points_large_dav2
+                    pc_large_dav2['colors'] = colors_large_dav2
+                    pcds_large_dav2.append(pc_large_dav2)
+
+                    pc_base_dav2 = {}
+                    pc_base_dav2['points'] = points_base_dav2
+                    pc_base_dav2['colors'] = colors_base_dav2
+                    pcds_base_dav2.append(pc_base_dav2)
+
+                    pc_small_dav2 = {}
+                    pc_small_dav2['points'] = points_small_dav2
+                    pc_small_dav2['colors'] = colors_small_dav2
+                    pcds_small_dav2.append(pc_small_dav2)
             
             self.processed_pcds['large'] = pcds_large
             print('Point clouds loaded: ', len(pcds_large))
             if not 'Validation' in dataset_path:
                 self.processed_pcds['base'] = pcds_base
                 self.processed_pcds['small'] = pcds_small
+                self.processed_pcds['large_dav2'] = pcds_large_dav2
+                self.processed_pcds['base_dav2'] = pcds_base_dav2
+                self.processed_pcds['small_dav2'] = pcds_small_dav2
             self.processed_pcds['files'] = pcds_large_files
             print('Files loaded: ', len(pcds_large_files))
 
+    def load_and_process_pcd(self, file_pathname):             
+        pcd = o3d.io.read_point_cloud(file_pathname)
+        pcd = PointCloud(points=np.asarray(pcd.points), colors=np.ones((np.asarray(pcd.points).shape[0], 1)))
+        pcd = self.filter_by_height(pcd, height=PARAMS.height)
+        pcd.points, pcd.colors = self.voxel_downsample_with_features(pcd.points, pcd.colors, voxel_size=PARAMS.voxel_size)
+        points, colors = self.global_normalize(pcd, max_distance=PARAMS.max_distance)
+        pc = {}
+        pc['points'] = points
+        pc['colors'] = colors
+        return pc
+    
     def global_normalize(self, pcd, max_distance=15.0):
             import copy
             """
@@ -389,7 +522,7 @@ class TrainingDataset(Dataset):
             file_pathname = self.queries[ndx].rel_scan_filepath
         else:
             file_pathname = os.path.join(self.dataset_path, self.queries[ndx].rel_scan_filepath)
-
+        original_file_pathname = file_pathname
         if self.transform is not None:
             if PARAMS.use_video:
                 file_pathname = file_pathname.replace('PCD_non_metric_Friburgo', 'PCD_Depth_Anything_Video_Small')
@@ -413,14 +546,14 @@ class TrainingDataset(Dataset):
                             file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
                         else:
                             file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
-                elif PARAMS.aug_mode == '3depths0.9':
+                elif PARAMS.aug_mode == '3depths0.4':
                     # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
                     # en una probabilidad del 40% se cambia el path
-                    if np.random.rand() < 0.9:
+                    if np.random.rand() < 0.4:
                         if np.random.rand() < 0.5:
-                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
+                            file_pathname = file_pathname.replace('LARGE', 'BASE')
                         else:
-                            file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
+                            file_pathname = file_pathname.replace('LARGE', 'SMALL')
                 elif PARAMS.aug_mode == 'only_best_effects':
                     # replace file_pathname '.../PCD_non_metric_Friburgo/...' by '.../PCD_non_metric_Friburgo_base/...'
                     # en una probabilidad del 40% se cambia el path
@@ -437,6 +570,39 @@ class TrainingDataset(Dataset):
                             file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_BASE')
                         else:
                             file_pathname = file_pathname.replace('PCD_LARGE', 'PCD_SMALL')
+                elif PARAMS.aug_mode == '6depths0.2':
+                    if np.random.rand() < 0.2:
+                        # replace PCD_DISTILL_ANY_DEPTH_LARGE by PCD_DISTILL_ANY_DEPTH_BASE, PCD_DISTILL_ANY_DEPTH_SMALL, PCD_LARGE, PCD_BASE, PCD_SMALL
+                        rand_int = np.random.randint(5) # 0, 1, 2, 3, 4 pero con mayor probabilidad de 3, 4
+                        #rand_int = np.random.choice([0, 1, 2, 3, 4], p=[0.2, 0.25, 0.1, 0.2, 0.25])
+                        if rand_int == 0:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_DISTILL_ANY_DEPTH_BASE')
+                        elif rand_int == 1:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_DISTILL_ANY_DEPTH_SMALL')
+                        elif rand_int == 2:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_LARGE')
+                        elif rand_int == 3:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_BASE')
+                        else:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_SMALL')
+                elif PARAMS.aug_mode == '6depths0.4':
+                    if np.random.rand() < 0.5:
+                        # replace PCD_DISTILL_ANY_DEPTH_LARGE by PCD_DISTILL_ANY_DEPTH_BASE, PCD_DISTILL_ANY_DEPTH_SMALL, PCD_LARGE, PCD_BASE, PCD_SMALL
+                        rand_int = np.random.randint(5) # 0, 1, 2, 3, 4 pero con mayor probabilidad de 3, 4
+                        #rand_int = np.random.choice([0, 1, 2, 3, 4], p=[0.2, 0.25, 0.1, 0.2, 0.25])
+                        if rand_int == 0:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_DISTILL_ANY_DEPTH_BASE')
+                        elif rand_int == 1:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_DISTILL_ANY_DEPTH_SMALL')
+                        elif rand_int == 2:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_LARGE')
+                        elif rand_int == 3:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_BASE')
+                        else:
+                            file_pathname = file_pathname.replace('PCD_DISTILL_ANY_DEPTH_LARGE', 'PCD_SMALL')
+                        
+
+
 
         # if PARAMS.use_depth_features:
         #     original_file_pathname = os.path.join(self.dataset_path, self.queries[ndx].rel_scan_filepath)
@@ -457,14 +623,23 @@ class TrainingDataset(Dataset):
             query = self.pc_loader.read_pc_features(file_pathname, features)
         else:
             # query = self.pc_loader.read_pc(file_pathname, self.max_gradient)
-            if 'SMALL' in file_pathname and PARAMS.aug_mode != 0:
-                file_pathname = file_pathname.replace('SMALL', 'LARGE')
-                index = self.processed_pcds['files'].index(file_pathname)
+            if 'PCD_DISTILL_ANY_DEPTH_SMALL' in file_pathname and PARAMS.aug_mode != 0:
+                # file_pathname = file_pathname.replace('SMALL', 'LARGE')
+                index = self.processed_pcds['files'].index(original_file_pathname)
                 query = self.processed_pcds['small'][index]
-            elif 'BASE' in file_pathname and PARAMS.aug_mode != 0:
-                file_pathname = file_pathname.replace('BASE', 'LARGE')
-                index = self.processed_pcds['files'].index(file_pathname)
+            elif 'PCD_DISTILL_ANY_DEPTH_BASE' in file_pathname and PARAMS.aug_mode != 0:
+                # file_pathname = file_pathname.replace('BASE', 'LARGE')
+                index = self.processed_pcds['files'].index(original_file_pathname)
                 query = self.processed_pcds['base'][index]
+            elif 'PCD_LARGE' in file_pathname and PARAMS.aug_mode != 0:
+                index = self.processed_pcds['files'].index(original_file_pathname)
+                query = self.processed_pcds['large_dav2'][index]
+            elif 'PCD_BASE' in file_pathname and PARAMS.aug_mode != 0:
+                index = self.processed_pcds['files'].index(original_file_pathname)
+                query = self.processed_pcds['base_dav2'][index]
+            elif 'PCD_SMALL' in file_pathname and PARAMS.aug_mode != 0:
+                index = self.processed_pcds['files'].index(original_file_pathname)
+                query = self.processed_pcds['small_dav2'][index]
             else:
                 index = self.processed_pcds['files'].index(file_pathname)
                 query = self.processed_pcds['large'][index]

@@ -32,6 +32,8 @@ class Config():
             self.use_video = config.get('use_video')
             self.use_gradients = config.get('use_gradients')
             self.max_magnitude = config.get('max_magnitude')
+            self.max_xymag = config.get('max_xymag')
+            self.use_xymag = config.get('use_xymag')
             # use_magnitude: False
             # use_magnitude_hue: False
             # use_magnitude_ones: False
@@ -58,6 +60,7 @@ class Config():
             self.use_magnitude_angle_hue_grey = config.get('use_magnitude_angle_hue_grey')
             self.use_magnitude_anglexy_hue_rgb = config.get('use_magnitude_anglexy_hue_rgb')
             self.use_magnitude_angle_hue_rgb = config.get('use_magnitude_angle_hue_rgb')
+            self.use_magnitude_anglexy_gray = config.get('use_magnitude_anglexy_gray')
             self.add_noise = config.get('add_noise')
             self.noise_prob = config.get('noise_prob')
             self.sigma = config.get('sigma')
