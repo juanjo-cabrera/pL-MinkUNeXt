@@ -196,8 +196,8 @@ def compute_hog_magnitude_angle(image):
     # Transformar la imagen a escala de grises
     img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)    
     # Calcular gradientes en x e y
-    grad_x = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=3)
-    grad_y = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=3)
+    grad_x = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=7)
+    grad_y = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=7)
     
     # Calcular magnitud y ángulo
     magnitude, angle = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
@@ -240,8 +240,8 @@ def process_image(lama_model, image_path, src_color_dir, magnitude_dir, angle_di
     # plt.show()
     # # save the magnitude and angle images
     # replace MAGNITUDE by MAGNITUDE_IMAGES
-    magnitude_image_path = magnitude_image_path.replace('MAGNITUDE', 'MAGNITUDE_IMAGES')
-    angle_image_path = angle_image_path.replace('ANGLE', 'ANGLE_IMAGES')
+    magnitude_image_path = magnitude_image_path.replace('MAGNITUDE7', 'MAGNITUDE7_IMAGES')
+    angle_image_path = angle_image_path.replace('ANGLE7', 'ANGLE7_IMAGES')
     os.makedirs(os.path.dirname(magnitude_image_path), exist_ok=True)
     os.makedirs(os.path.dirname(angle_image_path), exist_ok=True)
     magnitude = Image.fromarray((magnitude / magnitude.max() * 255).astype(np.uint8))
@@ -317,13 +317,13 @@ def copy_structure_and_process_images(src_color_dir, magnitude_dir, angle_dir, e
                 shutil.copy(src_file_path, dst_file_path)
 
 if __name__ == "__main__":
-
+    PARAMS.cuda_device = 'cuda:0'
     environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
     for environment in environments:
         # Directorio fuente y destino
         src_color_directory  = '/media/arvc/DATOS/Marcos/DATASETS/COLD/' + environment + '/'
-        magnitude_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/MAGNITUDE/' + environment + '/'
-        angle_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/ANGLE/' + environment + '/'
+        magnitude_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/MAGNITUDE7/' + environment + '/'
+        angle_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/ANGLE7/' + environment + '/'
         
         exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'Train2']
 

@@ -157,60 +157,73 @@ def get_recall(m, n, database_vectors, query_vectors, query_sets, database_sets,
     database_positions = np.array(database_positions)
     database_positions_tree = KDTree(database_positions)
     """
-    # Original PointNetVLAD code
-    database_output = database_vectors[m]
-    queries_output = query_vectors[n]
+    # create a csv file with query_image, query_x, query_y, retrieved_database_image, retrieved_database_x, retrieved_database_y, real_database_image, real_database_x, real_database_y
+    # and the recall@1 and recall@1% as binary values
+    import csv
+    with open('results.csv', 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(['query_image', 'query_x', 'query_y', 'retrieved_database_image', 'retrieved_database_x', 'retrieved_database_y', 'real_database_image', 'real_database_x', 'real_database_y', 'recall@1', 'recall@1%'])
+        # Original PointNetVLAD code
+        database_output = database_vectors[m]
+        queries_output = query_vectors[n]
 
-    # When embeddings are normalized, using Euclidean distance gives the same
-    # nearest neighbour search results as using cosine distance
-    database_nbrs = KDTree(database_output)
+        # When embeddings are normalized, using Euclidean distance gives the same
+        # nearest neighbour search results as using cosine distance
+        database_nbrs = KDTree(database_output)
 
-    num_neighbors = 25
-    recall = [0] * num_neighbors
+        num_neighbors = 25
+        recall = [0] * num_neighbors
 
-    one_percent_retrieved = 0
-    threshold = max(int(round(len(database_output)/100.0)), 1)
+        one_percent_retrieved = 0
+        threshold = max(int(round(len(database_output)/100.0)), 1)
 
-    num_evaluated = 0
-    errors = []
-    for i in range(len(queries_output)):
-        # i is query element ndx
-        query_details = query_sets[i]    # {'query': path, 'x': , 'y': }
-        true_neighbor = query_details[0][0]
-        #database_details = database_sets[true_neighbor]
-        query_position = query_details['x'], query_details['y']
-        # numpy array of position
-        query_position = np.array([query_position])
-        # check if index is correct
-        #distance_position, index = database_positions_tree.query(query_position, k=1)
-        #groundtruth_position = database_details['x'], database_details['y']
-        # numpy array of position 
-        
-        if len(true_neighbor) == 0:
-            continue
-        num_evaluated += 1
+        num_evaluated = 0
+        errors = []
+        for i in range(len(queries_output)):
+            # i is query element ndx
+            query_details = query_sets[i]    # {'query': path, 'x': , 'y': }
+            true_neighbor = query_details[0][0]
+            #database_details = database_sets[true_neighbor]
+            query_position = query_details['x'], query_details['y']
+            # numpy array of position
+            query_position = np.array([query_position])
+            # check if index is correct
+            #distance_position, index = database_positions_tree.query(query_position, k=1)
+            #groundtruth_position = database_details['x'], database_details['y']
+            # numpy array of position 
+            
+            if len(true_neighbor) == 0:
+                continue
+            num_evaluated += 1
 
-        # Find nearest neightbours
-        distances, indices = database_nbrs.query(np.array([queries_output[i]]), k=num_neighbors)
-        estimated_position = database_sets[indices[0][0]]['x'], database_sets[indices[0][0]]['y']
-        estimated_position = np.array([estimated_position])
-        #compute euclidean error between current_position and true_position
+            # Find nearest neightbours
+            distances, indices = database_nbrs.query(np.array([queries_output[i]]), k=num_neighbors)
+            estimated_position = database_sets[indices[0][0]]['x'], database_sets[indices[0][0]]['y']
+            estimated_position = np.array([estimated_position])
+            #compute euclidean error between current_position and true_position
 
-        metric_error = np.linalg.norm(estimated_position - query_position)
-        errors.append(metric_error)
+            metric_error = np.linalg.norm(estimated_position - query_position)
+            errors.append(metric_error)
 
+            recall1_retrieved = 0
+            recall1percent_retrieved = 0
+            for j in range(len(indices[0])):
+                if indices[0][j] in true_neighbor:
+                    recall[j] += 1
+                    if j == 0:
+                        recall1_retrieved = 1
+                    break
 
-        for j in range(len(indices[0])):
-            if indices[0][j] in true_neighbor:
-                recall[j] += 1
-                break
+            if len(list(set(indices[0][0:threshold]).intersection(set(true_neighbor)))) > 0:
+                one_percent_retrieved += 1
+                recall1percent_retrieved = 1
 
-        if len(list(set(indices[0][0:threshold]).intersection(set(true_neighbor)))) > 0:
-            one_percent_retrieved += 1
+            # write to csv file
+            writer.writerow([query_details['query'], query_details['x'], query_details['y'], database_sets[indices[0][0]]['query'], database_sets[indices[0][0]]['x'], database_sets[indices[0][0]]['y'], database_sets[true_neighbor[0]]['query'], database_sets[true_neighbor[0]]['x'], database_sets[true_neighbor[0]]['y'], recall1_retrieved, recall1percent_retrieved])
 
-    one_percent_recall = (one_percent_retrieved/float(num_evaluated))*100
-    recall = (np.cumsum(recall)/float(num_evaluated))*100
-    mean_error = np.mean(errors)
+        one_percent_recall = (one_percent_retrieved/float(num_evaluated))*100
+        recall = (np.cumsum(recall)/float(num_evaluated))*100
+        mean_error = np.mean(errors)
     return recall, one_percent_recall, mean_error
 
 
@@ -267,7 +280,7 @@ if __name__ == "__main__":
     #PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query24batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250303_0112_best_test.pth'
     #PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_gradients_pos_per_query12batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250308_2326_best_test.pth'
     #PARAMS.use_magnitude =  False
-    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_2seq_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250311_1157_best_test.pth'
+    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test.pth'
 
     # Load a pretrained model                     
     if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:
@@ -293,6 +306,6 @@ if __name__ == "__main__":
     model_name = os.path.split(PARAMS.weights_path)[1]
     model_name = os.path.splitext(model_name)[0]
     prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt", prefix, stats)
+    # pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt", prefix, stats)
 
 

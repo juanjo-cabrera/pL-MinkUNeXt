@@ -34,6 +34,8 @@ class Config():
             self.max_magnitude = config.get('max_magnitude')
             self.max_xymag = config.get('max_xymag')
             self.use_xymag = config.get('use_xymag')
+            self.use_magnitude_anglexy_huexy = config.get('use_magnitude_anglexy_huexy')
+            self.save_csv = config.get('save_csv')
             # use_magnitude: False
             # use_magnitude_hue: False
             # use_magnitude_ones: False

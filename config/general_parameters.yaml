@@ -1,9 +1,11 @@
 dataset_folder: '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/'
 test_folder: '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/'
+
 cuda_device: 'cuda:1' # 'cuda:0' or 'cuda:1'
 positive_distance: 0.5 # meters
 negative_distance: 0.7 # meters
 
+save_csv: False
 use_image_features: False
 use_rgb: False
 use_gray: False
@@ -21,6 +23,7 @@ use_magnitude_ones: False
 use_angle: False
 use_anglexy: False
 use_anglexy_hue: False
+use_magnitude_anglexy_huexy: False
 use_anglexy_ones: False
 use_magnitude_anglexy: False
 use_magnitude_anglexy_hue: False

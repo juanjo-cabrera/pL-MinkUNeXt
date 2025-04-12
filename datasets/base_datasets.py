@@ -250,7 +250,9 @@ class TrainingDataset(Dataset):
                     # global normalize the magnitude
                     magnitude = (magnitude / PARAMS.max_magnitude) + 0.5
                     rad_angle = np.deg2rad(angle)
-                
+                    # x and y between 0.5 and 1.5
+                    # x = (np.cos(rad_angle) / 2) + 1.0 
+                    # y = (np.sin(rad_angle) / 2) + 1.0
                     x = np.cos(rad_angle)/2 + 0.5
                     y = np.sin(rad_angle)/2 + 0.5
                     
@@ -302,15 +304,18 @@ class TrainingDataset(Dataset):
                     elif PARAMS.use_magnitude_anglexy_hue:
                         hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
                         features = np.column_stack((magnitude, x, y, hue))
+                    elif PARAMS.use_magnitude_anglexy_huexy:
+                        hue_x, hue_y = self.rgb_to_hue_cos_sin(np.asarray(pcd_large.colors))
+                        features = np.column_stack((magnitude, x, y, hue_x, hue_y))
                         
                     elif PARAMS.use_magnitude_angle_hue:
                         angle = (angle / 360.0) + 0.5
                         hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
                         features = np.column_stack((magnitude, angle, hue))
                     elif PARAMS.use_magnitude_anglexy_hue_grey:
-                        hue = self.rgb_to_hue(np.asarray(pcd_large.colors))
+                        magnitude = magnitude - 0.5
+                        hue = self.rgb_to_hue(np.asarray(pcd_large.colors)) - 0.5
                         grey = np.mean(np.asarray(pcd_large.colors), axis=1).reshape(-1, 1)
-                        grey = grey + 0.5
                         features = np.column_stack((magnitude, x, y, hue, grey))
                     elif PARAMS.use_magnitude_angle_hue_grey:
                         angle = (angle / 360.0) + 0.5
@@ -510,6 +515,25 @@ class TrainingDataset(Dataset):
         # normalizar a [0.5, 1.5]
         hue = (hue / 360.0) + 0.5
         return hue
+
+    def rgb_to_hue_cos_sin(self, rgb):
+        # Separar los canales RGB
+        r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+
+        # Calcular el numerador y denominador para la fórmula del arcoseno
+        numerator = (r - g) + (r - b)
+        denominator = 2 * np.sqrt((r - g) ** 2 + (r - b) * (g - b))
+
+        # Evitar divisiones por cero: establecer denominadores cercanos a cero en un valor pequeño
+        denominator = np.where(denominator == 0, 1e-10, denominator)
+
+        # Calcular theta usando la fórmula del arcoseno
+        theta = np.arccos(numerator / denominator)
+
+        # Convertir en cos y seno
+        hue_cos = np.cos(theta)/2 + 0.5
+        hue_sin = np.sin(theta)/2 + 0.5
+        return hue_cos, hue_sin
 
     def __len__(self):
         return len(self.queries)

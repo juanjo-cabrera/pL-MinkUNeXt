@@ -49,6 +49,18 @@ class EvaluationDataset():
         self.cloudy_query_path = cloudy_query_path
         self.night_query_path = night_query_path
         self.sunny_query_path = sunny_query_path
+        self.save_csv_path_cloudy = None
+        self.save_csv_path_night = None
+        self.save_csv_path_sunny = None
+        if self.cloudy_query_path is not None:
+            print('Cloudy query path: {}'.format(self.cloudy_query_path))
+            self.save_csv_path_cloudy = os.path.join(self.cloudy_query_path, 'results.csv')
+        if self.night_query_path is not None:
+            print('Night query path: {}'.format(self.night_query_path))
+            self.save_csv_path_night = os.path.join(self.night_query_path, 'results.csv')
+        if self.sunny_query_path is not None:
+            print('Sunny query path: {}'.format(self.sunny_query_path))
+            self.save_csv_path_sunny = os.path.join(self.sunny_query_path, 'results.csv')
 
         self.max_gradient = None
         # pc_loader must be set in the inheriting class
@@ -213,6 +225,8 @@ class EvaluationDataset():
             
                 x = np.cos(rad_angle)/2 + 0.5
                 y = np.sin(rad_angle)/2 + 0.5
+                # x = (np.cos(rad_angle) / 2) + 1.0 
+                # y = (np.sin(rad_angle) / 2) + 1.0
                 
                 xmag = np.cos(rad_angle) * magnitude
                 ymag = np.sin(rad_angle) * magnitude
@@ -262,14 +276,17 @@ class EvaluationDataset():
                 elif PARAMS.use_magnitude_anglexy_hue:
                     hue = self.rgb_to_hue(np.asarray(pcd.colors))
                     features = np.column_stack((magnitude, x, y, hue))
+                elif PARAMS.use_magnitude_anglexy_huexy:
+                    hue_x, hue_y = self.rgb_to_hue_cos_sin(np.asarray(pcd.colors))
+                    features = np.column_stack((magnitude, x, y, hue_x, hue_y))
                 elif PARAMS.use_magnitude_angle_hue:
                     angle = (angle / 360.0) + 0.5
                     hue = self.rgb_to_hue(np.asarray(pcd.colors))
                     features = np.column_stack((magnitude, angle, hue))
                 elif PARAMS.use_magnitude_anglexy_hue_grey:
-                    hue = self.rgb_to_hue(np.asarray(pcd.colors))
+                    magnitude = magnitude - 0.5
+                    hue = self.rgb_to_hue(np.asarray(pcd.colors)) - 0.5
                     grey = np.mean(np.asarray(pcd.colors), axis=1).reshape(-1, 1)
-                    grey = grey + 0.5
                     features = np.column_stack((magnitude, x, y, hue, grey))
                 elif PARAMS.use_magnitude_angle_hue_grey:
                     angle = (angle / 360.0) + 0.5
@@ -403,6 +420,25 @@ class EvaluationDataset():
         hue = (hue / 360.0) + 0.5
         return hue
     
+    def rgb_to_hue_cos_sin(self, rgb):
+        # Separar los canales RGB
+        r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+
+        # Calcular el numerador y denominador para la fórmula del arcoseno
+        numerator = (r - g) + (r - b)
+        denominator = 2 * np.sqrt((r - g) ** 2 + (r - b) * (g - b))
+
+        # Evitar divisiones por cero: establecer denominadores cercanos a cero en un valor pequeño
+        denominator = np.where(denominator == 0, 1e-10, denominator)
+
+        # Calcular theta usando la fórmula del arcoseno
+        theta = np.arccos(numerator / denominator)
+
+        # Convertir en cos y seno
+        hue_cos = np.cos(theta)/2 + 0.5
+        hue_sin = np.sin(theta)/2 + 0.5
+        return hue_cos, hue_sin
+    
     def evaluate(self, model, device, log: bool = False, show_progress: bool = False):
         if PARAMS.use_gradients:
             print(f'REMINDER: using max_gradient={PARAMS.max_magnitude} for train_extended')
@@ -432,8 +468,15 @@ class EvaluationDataset():
             try:
                 with open(p, 'rb') as f:
                     query_sets = pickle.load(f)
-
-                temp = self.evaluate_dataset(model, device, database_sets, database_embeddings, query_sets, log=log, show_progress=show_progress)
+                if 'cloudy' in query_file:
+                    csv_file = self.save_csv_path_cloudy
+                elif 'night' in query_file:
+                    csv_file = self.save_csv_path_night
+                elif 'sunny' in query_file:
+                    csv_file = self.save_csv_path_sunny
+                else:
+                    raise ValueError('Unknown csv file to store resutls: {}'.format(query_file))
+                temp = self.evaluate_dataset(model, device, database_sets, database_embeddings, query_sets, log=log, show_progress=show_progress, csv_file=csv_file)
                 stats[location_name] = temp
             except:
                 print('Error loading file or it does not exist: {}'.format(p))
@@ -443,7 +486,7 @@ class EvaluationDataset():
 
 
     def evaluate_dataset(self, model, device, database_sets, database_embeddings, query_sets, log: bool = False,
-                        show_progress: bool = False):
+                        show_progress: bool = False, csv_file=None):
         # Run evaluation on a single dataset
         recall = np.zeros(25)
         one_percent_recall = []
@@ -456,7 +499,11 @@ class EvaluationDataset():
         query_embeddings.append(self.get_latent_vectors(model, query_sets, device))
         i = 0
         j = 0
-        recall, one_percent_recall, mean_error = self.get_recall(i, j, database_embeddings, query_embeddings, query_sets,
+        if PARAMS.save_csv:
+            recall, one_percent_recall, mean_error = self.get_recall_with_csv(i, j, database_embeddings, query_embeddings, query_sets,
+                                            database_sets, log=log, csv_file=csv_file)
+        else:
+            recall, one_percent_recall, mean_error = self.get_recall(i, j, database_embeddings, query_embeddings, query_sets,
                                             database_sets, log=log)
     
         stats = {'ave_one_percent_recall': one_percent_recall, 'ave_recall': recall, 'mean_error': mean_error}
@@ -620,6 +667,84 @@ class EvaluationDataset():
         recall = (np.cumsum(recall)/float(num_evaluated))*100
         mean_error = np.mean(errors)
         return recall, one_percent_recall, mean_error
+    
+    def get_recall_with_csv(self, m, n, database_vectors, query_vectors, query_sets, database_sets, log=False, csv_file=None):
+        """
+        database_positions = []
+        for i, elem_ndx in enumerate(database_sets):
+            #pc_file_path = os.path.join(PARAMS.dataset_folder, set[elem_ndx]["query"])
+            position = np.array([database_sets[elem_ndx]["x"], database_sets[elem_ndx]["y"]])
+            database_positions.append(position)
+        
+        database_positions = np.array(database_positions)
+        database_positions_tree = KDTree(database_positions)
+        """
+        import csv
+        with open(csv_file, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['query_image', 'query_x', 'query_y', 'retrieved_database_image', 'retrieved_database_x', 'retrieved_database_y', 'real_database_image', 'real_database_x', 'real_database_y', 'recall@1', 'recall@1%'])
+            # Original PointNetVLAD code
+            database_output = database_vectors[m]
+            queries_output = query_vectors[n]
+
+            # When embeddings are normalized, using Euclidean distance gives the same
+            # nearest neighbour search results as using cosine distance
+            database_nbrs = KDTree(database_output)
+
+            num_neighbors = 25
+            recall = [0] * num_neighbors
+
+            one_percent_retrieved = 0
+            threshold = max(int(round(len(database_output)/100.0)), 1)
+
+            num_evaluated = 0
+            errors = []
+            for i in range(len(queries_output)):
+                # i is query element ndx
+                query_details = query_sets[i]    # {'query': path, 'x': , 'y': }
+                true_neighbor = query_details[0][0]
+                #database_details = database_sets[true_neighbor]
+                query_position = query_details['x'], query_details['y']
+                # numpy array of position
+                query_position = np.array([query_position])
+                # check if index is correct
+                #distance_position, index = database_positions_tree.query(query_position, k=1)
+                #groundtruth_position = database_details['x'], database_details['y']
+                # numpy array of position 
+                
+                if len(true_neighbor) == 0:
+                    continue
+                num_evaluated += 1
+
+                # Find nearest neightbours
+                distances, indices = database_nbrs.query(np.array([queries_output[i]]), k=num_neighbors)
+                estimated_position = database_sets[indices[0][0]]['x'], database_sets[indices[0][0]]['y']
+                estimated_position = np.array([estimated_position])
+                #compute euclidean error between current_position and true_position
+
+                metric_error = np.linalg.norm(estimated_position - query_position)
+                errors.append(metric_error)
+
+                recall1_retrieved = 0
+                recall1percent_retrieved = 0
+                for j in range(len(indices[0])):
+                    if indices[0][j] in true_neighbor:
+                        recall[j] += 1
+                        if j == 0:
+                            recall1_retrieved = 1
+                        break
+
+                if len(list(set(indices[0][0:threshold]).intersection(set(true_neighbor)))) > 0:
+                    one_percent_retrieved += 1
+                    recall1percent_retrieved = 1
+
+                # write to csv file
+                writer.writerow([query_details['query'], query_details['x'], query_details['y'], database_sets[indices[0][0]]['query'], database_sets[indices[0][0]]['x'], database_sets[indices[0][0]]['y'], database_sets[true_neighbor[0]]['query'], database_sets[true_neighbor[0]]['x'], database_sets[true_neighbor[0]]['y'], recall1_retrieved, recall1percent_retrieved])
+
+            one_percent_recall = (one_percent_retrieved/float(num_evaluated))*100
+            recall = (np.cumsum(recall)/float(num_evaluated))*100
+            mean_error = np.mean(errors)
+        return recall, one_percent_recall, mean_error
 
 
 def print_eval_stats(stats):
@@ -651,7 +776,7 @@ def pnv_write_eval_stats(file_name, prefix, stats):
 
 
 if __name__ == "__main__":
-    PARAMS.cuda_device = 'cuda:1'
+    PARAMS.cuda_device = 'cuda:0'
   
     if torch.cuda.is_available():
         device = PARAMS.cuda_device
@@ -665,16 +790,20 @@ if __name__ == "__main__":
     # # set up dataloaders
     # dataloaders = make_dataloaders()
     #evaluation_set_fa = EvaluationDataset(PARAMS.dataset_folder)
-    PARAMS.use_magnitude_anglexy_hue = True
+    PARAMS.use_magnitude_anglexy = True
     PARAMS.use_gradients = True
-
-    #PARAMS.weights_path = '/home/arvc/Juanjo/develop/IndoorMinkUnext/weights/Indoor_MinkUNeXt_rot270_pos0.7neg0.7voxel_size0.05height-0.25_20240906_1622_best.pth'
-    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_seq2_gradients_pos_per_query16batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250317_1444_best_test.pth'
+    PARAMS.save_csv = True
+    PARAMS.use_image_features = True
+    PARAMS.use_depth_features = False
     
+    #PARAMS.weights_path = '/home/arvc/Juanjo/develop/IndoorMinkUnext/weights/Indoor_MinkUNeXt_rot270_pos0.7neg0.7voxel_size0.05height-0.25_20240906_1622_best.pth'
+    # PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_seq2_gradients_pos_per_query16batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250317_1444_best_test.pth'
+    PARAMS.weights_path = '/media/arvc/DATOS/Juanjo/weights/DepthMinkunext/aiai_weights/Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test.pth'
+
         # Load a pretrained model                     
     if PARAMS.use_magnitude_hue or PARAMS.use_magnitude_ones or PARAMS.use_anglexy:
         model = MinkUNeXt(in_channels=2, out_channels=512, D=3)       
-    elif PARAMS.use_rgb or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones:
+    elif PARAMS.use_rgb or PARAMS.use_anglexy_hue or PARAMS.use_anglexy_ones or PARAMS.use_magnitude_anglexy:
         model = MinkUNeXt(in_channels=3, out_channels=512, D=3)
     elif PARAMS.use_magnitude_anglexy_hue:
         model = MinkUNeXt(in_channels=4, out_channels=512, D=3)
@@ -685,15 +814,20 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(PARAMS.weights_path, map_location=device))
 
     model.to(device)
+    print(model)
 
-    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_B/'
+
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/FRIBURGO_A/'
+    evaluation_set_fa = EvaluationDataset(PARAMS.test_folder)
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/FRIBURGO_B/'
     evaluation_set_fb = EvaluationDataset(PARAMS.test_folder)
-    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_A/'
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/SAARBRUCKEN_A/'
     evaluation_set_sa = EvaluationDataset(PARAMS.test_folder)
-    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/SAARBRUCKEN_B/'
+    PARAMS.test_folder = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/SAARBRUCKEN_B/'
     evaluation_set_sb = EvaluationDataset(PARAMS.test_folder)
 
-
+    fa_stats = evaluation_set_fa.evaluate(model, device, log=False, show_progress=True)
+    print_eval_stats(fa_stats)
     fb_stats = evaluation_set_fb.evaluate(model, device, log=False, show_progress=True)
     sa_stats = evaluation_set_sa.evaluate(model, device, log=False, show_progress=True)
     sb_stats = evaluation_set_sb.evaluate(model, device, log=False, show_progress=True)
@@ -701,46 +835,46 @@ if __name__ == "__main__":
     print_eval_stats(sa_stats)
     print_eval_stats(sb_stats)
 
-    file_names = ['/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt', '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt', '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt']
-    for file_name in file_names:
-        with open(file_name, "a") as f:
-            if PARAMS.use_magnitude:
-                f.write('Feature: Magnitude\n')
-            if PARAMS.use_hue:
-                f.write('Feature: Hue\n')
-            if PARAMS.use_magnitude_hue:
-                f.write('Feature: Magnitude + Hue\n')
-            if PARAMS.use_magnitude_ones:
-                f.write('Feature: Magnitude + Ones\n')
-            if PARAMS.use_angle:
-                f.write('Feature: Angle\n')
-            if PARAMS.use_anglexy:
-                f.write('Feature: AngleXY\n')
-            if PARAMS.use_anglexy_hue:
-                f.write('Feature: AngleXY + Hue\n')
-            if PARAMS.use_anglexy_ones:
-                f.write('Feature: AngleXY + Ones\n')
-            if PARAMS.use_magnitude_anglexy_hue:
-                f.write('Feature: Magnitude + AngleXY + Hue\n')
-            if PARAMS.use_magnitude_anglexy_hue_ones:
-                f.write('Feature: Magnitude + AngleXY + Hue + Ones\n')
-            if PARAMS.use_magnitude_angle_hue:
-                f.write('Feature: Magnitude + Angle + Hue\n')
-            if PARAMS.use_magnitude_anglexy_hue_grey:
-                f.write('Feature: Magnitude + AngleXY + Hue + Grey\n')
-            if PARAMS.use_magnitude_angle_hue_grey:
-                f.write('Feature: Magnitude + Angle + Hue + Grey\n')
-            if PARAMS.use_magnitude_anglexy_hue_rgb:
-                f.write('Feature: Magnitude + AngleXY + Hue + RGB\n')
-            if PARAMS.use_magnitude_angle_hue_rgb:
-                f.write('Feature: Magnitude + Angle + Hue + RGB\n')
+    # file_names = ['/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt', '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt', '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt']
+    # for file_name in file_names:
+    #     with open(file_name, "a") as f:
+    #         if PARAMS.use_magnitude:
+    #             f.write('Feature: Magnitude\n')
+    #         if PARAMS.use_hue:
+    #             f.write('Feature: Hue\n')
+    #         if PARAMS.use_magnitude_hue:
+    #             f.write('Feature: Magnitude + Hue\n')
+    #         if PARAMS.use_magnitude_ones:
+    #             f.write('Feature: Magnitude + Ones\n')
+    #         if PARAMS.use_angle:
+    #             f.write('Feature: Angle\n')
+    #         if PARAMS.use_anglexy:
+    #             f.write('Feature: AngleXY\n')
+    #         if PARAMS.use_anglexy_hue:
+    #             f.write('Feature: AngleXY + Hue\n')
+    #         if PARAMS.use_anglexy_ones:
+    #             f.write('Feature: AngleXY + Ones\n')
+    #         if PARAMS.use_magnitude_anglexy_hue:
+    #             f.write('Feature: Magnitude + AngleXY + Hue\n')
+    #         if PARAMS.use_magnitude_anglexy_hue_ones:
+    #             f.write('Feature: Magnitude + AngleXY + Hue + Ones\n')
+    #         if PARAMS.use_magnitude_angle_hue:
+    #             f.write('Feature: Magnitude + Angle + Hue\n')
+    #         if PARAMS.use_magnitude_anglexy_hue_grey:
+    #             f.write('Feature: Magnitude + AngleXY + Hue + Grey\n')
+    #         if PARAMS.use_magnitude_angle_hue_grey:
+    #             f.write('Feature: Magnitude + Angle + Hue + Grey\n')
+    #         if PARAMS.use_magnitude_anglexy_hue_rgb:
+    #             f.write('Feature: Magnitude + AngleXY + Hue + RGB\n')
+    #         if PARAMS.use_magnitude_angle_hue_rgb:
+    #             f.write('Feature: Magnitude + Angle + Hue + RGB\n')
 
-    # Save results to the text file
-    model_name = os.path.split(PARAMS.weights_path)[1]
-    model_name = os.path.splitext(model_name)[0]
-    prefix = "{}, {}".format(PARAMS.protocol, model_name)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt", prefix, fb_stats)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt", prefix, sa_stats)
-    pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt", prefix, sb_stats)
+    # # Save results to the text file
+    # model_name = os.path.split(PARAMS.weights_path)[1]
+    # model_name = os.path.splitext(model_name)[0]
+    # prefix = "{}, {}".format(PARAMS.protocol, model_name)
+    # pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_friburgo_b.txt", prefix, fb_stats)
+    # pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_a.txt", prefix, sa_stats)
+    # pnv_write_eval_stats("/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/results_saarbrucken_b.txt", prefix, sb_stats)
 
 

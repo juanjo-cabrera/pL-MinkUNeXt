@@ -185,7 +185,7 @@ def do_train(model, dataloaders, evaluation_set_fa, evaluation_set_fb, evaluatio
             #if epoch >= 50:
             if epoch % 10 == 0 or epoch ==1:
                 # write results to a .txt withou deleting previous results
-                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_image_features2.txt'
+                file_name = '/home/arvc/Juanjo/develop/DepthMinkUNeXt/training/experiment_image_features.txt'
                 model.eval()
                 model.to(device)
                 print('Model evaluation epoch: {}'.format(epoch))
@@ -361,7 +361,7 @@ if __name__ == '__main__':
 
     PARAMS.aug_mode = '6depths0.4'
     # PARAMS.aug_mode = 'only_best_effects0.5'
-    use_features = ['use_magnitude_anglexy_gray', 'use_magnitude_anglexy_hue', 'use_magnitude_anglexy_hue_grey']
+    use_features = ['use_magnitude_anglexy_huexy']
     #use_features = ['use_magnitude_anglexy_hue']
     for feature in use_features:
         if feature == 'use_ones':
@@ -413,7 +413,7 @@ if __name__ == '__main__':
         elif PARAMS.use_magnitude_anglexy_hue or PARAMS.use_magnitude_angle_hue_grey or PARAMS.use_magnitude_anglexy_gray:
             model.conv0p1s1 = ME.MinkowskiConvolution(
                 4, 32, kernel_size=5, dimension=3)
-        elif PARAMS.use_magnitude_anglexy_hue_ones or PARAMS.use_magnitude_anglexy_hue_grey:
+        elif PARAMS.use_magnitude_anglexy_hue_ones or PARAMS.use_magnitude_anglexy_hue_grey or PARAMS.use_magnitude_anglexy_huexy:
             model.conv0p1s1 = ME.MinkowskiConvolution(
                 5, 32, kernel_size=5, dimension=3)
         elif PARAMS.use_magnitude_angle_hue_rgb:

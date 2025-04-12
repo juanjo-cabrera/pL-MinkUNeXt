@@ -84,7 +84,7 @@ def construct_query_and_database_sets(base_path, df_test, df_database, output_na
     for key in range(len(test.keys())):
         coor = np.array([[test[key]["x"], test[key]["y"]]])
         # query the database tree for the nearest point cloud
-        index = database_tree.query_radius(coor, r=0.5)
+        index, _ = database_tree.query_radius(coor, r=0.5, sort_results=True, return_distance=True)
         #distances.append(index[0])    
         # change the shape from (n, ) to (1, n) 
         index = np.array([index[0]])   
