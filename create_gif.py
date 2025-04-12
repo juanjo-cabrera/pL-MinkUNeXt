@@ -250,15 +250,19 @@ def plot_pcds_and_positions(df, df_database, dataset_path, output_path):
     """
     Plots the query PCD, retrieved database PCD, real database PCD, and their positions on the map.
     """
+    k = 10
+    if 'SAARBRUCKEN_B' in dataset_path:
+        k = 5
+    i = 0
     for index, row in df.iterrows():
-        if index % 50 == 0:
+        if i % k == 0:
             # check if the output figure already exists
-            output_file_path = os.path.join(output_path, f'{index}.png')
-            if os.path.exists(output_file_path):
-                print(f"Figure already exists for index: {index}, skipping...")
-                continue
+            output_file_path = os.path.join(output_path, f'{i}.png')
+            # if os.path.exists(output_file_path):
+            #     print(f"Figure already exists for index: {index}, skipping...")
+            #     continue
             # Print the index being processed
-            print(f"Processing index: {index}")
+            print(f"Processing index: {i}")
             # Load PCD files
             query_pcd_path = os.path.join(dataset_path, row['query_image'])
             retrieved_pcd_path = os.path.join(dataset_path, row['retrieved_database_image'])
@@ -273,7 +277,7 @@ def plot_pcds_and_positions(df, df_database, dataset_path, output_path):
             real_image = get_pointcloud_image(real_pcd_path, real_dst_file_path)
             # Create a figure
             fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-            fig.suptitle(f"Query vs Database Point Clouds (Index: {index})", fontsize=24)
+            fig.suptitle(f"Query vs Database Point Clouds (Index: {i})", fontsize=24)
 
             # Plot images
             axes[0, 0].imshow(query_image)
@@ -300,16 +304,38 @@ def plot_pcds_and_positions(df, df_database, dataset_path, output_path):
             axes[1, 1].set_title("Positions on Map", fontsize=20)
             axes[1, 1].set_xlabel("x (m)", fontsize=16)
             axes[1, 1].set_ylabel("y (m)", fontsize=16)
-            axes[1, 1].legend(fontsize=12.5)
-            axes[1, 1].grid()
+            # Colocar la leyenda fuera del área de la gráfica
+            if 'FRIBURGO_A' in dataset_path:
+                axes[1, 1].legend(fontsize=12)
+            elif 'FRIBURGO_B' in dataset_path:
+                legend = axes[1, 1].legend(fontsize=12)                
+                legend.get_frame().set_linewidth(1)
+                # modificar los limites de los ejes para que la leyenda no se superponga
+                axes[1, 1].set_xlim(df_database['x'].min() - 4, df_database['x'].max() + 0.5)
+                axes[1, 1].set_ylim(df_database['y'].min() - 0.5, df_database['y'].max() + 0.5)
+            elif 'SAARBRUCKEN_A' in dataset_path:
+                legend = axes[1, 1].legend(fontsize=12)                
+                legend.get_frame().set_linewidth(1)
+                # modificar los limites de los ejes para que la leyenda no se superponga
+                axes[1, 1].set_xlim(df_database['x'].min() - 5, df_database['x'].max() + 0.5)
+                axes[1, 1].set_ylim(df_database['y'].min() - 0.5, df_database['y'].max() + 1.0)
+            elif 'SAARBRUCKEN_B' in dataset_path:
+                legend = axes[1, 1].legend(fontsize=12)                
+                legend.get_frame().set_linewidth(1)
+                # modificar los limites de los ejes para que la leyenda no se superponga
+                axes[1, 1].set_xlim(df_database['x'].min() - 0.5, df_database['x'].max() + 0.5)
+                axes[1, 1].set_ylim(df_database['y'].min() - 0.5, df_database['y'].max() + 2.0)
+    
 
-            # Reducir espacio entre subplots y ajustar layout
+
+
             plt.subplots_adjust(wspace=0.05, hspace=0.1)
             plt.tight_layout(rect=[0, 0, 1, 0.95])
             
             # Guardar la figura con mayor calidad
-            plt.savefig(os.path.join(output_path, f'{index}.png'), dpi=300, bbox_inches='tight')
+            plt.savefig(os.path.join(output_path, f'{i}.jpeg'), dpi=300, bbox_inches='tight')
             plt.close()
+        i += 1
             
 
 
@@ -364,6 +390,14 @@ if __name__ == "__main__":
             print('Cloudy query path: {}'.format(cloudy_query_path))
             save_csv_path_cloudy = os.path.join(cloudy_query_path, 'results.csv')
             df_cloudy = pd.read_csv(save_csv_path_cloudy)
+            timestamps = df_cloudy['query_image']
+            # está entre '/t' y '_x'
+            timestamps = [float(x.split('/t')[1].split('_x')[0]) for x in timestamps]
+            # add the timestamps to the dataframe
+            df_cloudy['timestamp'] = timestamps     
+            # sort the dataframe by the timestamp
+            df_cloudy = df_cloudy.sort_values(by=['timestamp'])
+            # get the pointcloud positions
             plot_pcds_and_positions(df_cloudy, df_database, dataset_path, cloudy_output_path)
         if night_query_path is not None:
             if not os.path.exists(night_output_path):
@@ -371,6 +405,14 @@ if __name__ == "__main__":
             print('Night query path: {}'.format(night_query_path))
             save_csv_path_night = os.path.join(night_query_path, 'results.csv')
             df_night = pd.read_csv(save_csv_path_night)
+            timestamps = df_night['query_image']
+            # está entre '/t' y '_x'
+            timestamps = [float(x.split('/t')[1].split('_x')[0]) for x in timestamps]
+            # add the timestamps to the dataframe
+            df_night['timestamp'] = timestamps
+            # sort the dataframe by the timestamp
+            df_night = df_night.sort_values(by=['timestamp'])
+            # get the pointcloud positions
             plot_pcds_and_positions(df_night, df_database, dataset_path, night_output_path)
         if sunny_query_path is not None:
             if not os.path.exists(sunny_output_path):
@@ -378,6 +420,14 @@ if __name__ == "__main__":
             print('Sunny query path: {}'.format(sunny_query_path))
             save_csv_path_sunny = os.path.join(sunny_query_path, 'results.csv')
             df_sunny = pd.read_csv(save_csv_path_sunny)
+            timestamps = df_sunny['query_image']
+            # está entre '/t' y '_x'
+            timestamps = [float(x.split('/t')[1].split('_x')[0]) for x in timestamps]
+            # add the timestamps to the dataframe
+            df_sunny['timestamp'] = timestamps
+            # sort the dataframe by the timestamp
+            df_sunny = df_sunny.sort_values(by=['timestamp'])
+            # get the pointcloud positions
             plot_pcds_and_positions(df_sunny, df_database, dataset_path, sunny_output_path)
             
         
