@@ -3,6 +3,40 @@ import cv2
 import numpy as np
 
 
+def figures2video(folder, output, fps=30):
+    """
+    Convierte las imágenes en una carpeta a un video MP4.
+    
+    Args:
+        folder: Carpeta con las imágenes
+        output: Ruta de salida del video
+        fps: Frames por segundo del video
+    """
+    # get all files in folder and subfolders
+    files = []
+    all_filenames = []
+    for root, _, filenames in os.walk(folder):
+        # sort filenames based on the number in the filename
+        filenames.sort(key=lambda x: int(x.split('.')[0].split('_')[-1]))
+        for filename in filenames:
+            files.append(os.path.join(root, filename))
+            all_filenames.append(filename)
+
+    # get first image to get size
+    img = cv2.imread(files[0])
+    height, width, _ = img.shape
+
+    # create video writer with MP4 codec
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use MP4V codec for MP4
+    out = cv2.VideoWriter(output, fourcc, fps, (width, height))
+
+    # write images to video
+    for file in files:
+        img = cv2.imread(file)
+        out.write(img)
+
+    out.release()
+
 def frames2video(folder, output, fps=30):
     """
     Convierte los frames en una carpeta a un video MP4.
@@ -41,7 +75,7 @@ def frames2video(folder, output, fps=30):
 
 if __name__ == '__main__':
     dataset_path_base  = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/'
-    input_path_base = '/media/arvc/DATOS/Marcos/DATASETS/COLD/'
+    input_path_base = '/media/arvc/DATOS/Juanjo/Datasets/COLD/VISUAL_RESULTS/'
     output_path_base = '/media/arvc/DATOS/Juanjo/Datasets/COLD/VIDEOS_RESULTS/'
     environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
     for environment in environments:
@@ -73,20 +107,20 @@ if __name__ == '__main__':
         if cloudy_query_path is not None:
             if not os.path.exists(cloudy_output_path):
                 os.makedirs(cloudy_output_path)
-            frames2video(cloudy_input_path, cloudy_output_path + f'cloudy_pano_{environment}.mp4', fps=30)
+            figures2video(cloudy_input_path, cloudy_output_path + f'cloudy_figures_{environment}.mp4', fps=2)
             
         if night_query_path is not None:
             if not os.path.exists(night_output_path):
                 os.makedirs(night_output_path)
-            frames2video(night_input_path, night_output_path + f'night_pano_{environment}.mp4', fps=30)
+            figures2video(night_input_path, night_output_path + f'night_figures_{environment}.mp4', fps=2)
 
         if sunny_query_path is not None:
             if not os.path.exists(sunny_output_path):
                 os.makedirs(sunny_output_path)
-            frames2video(sunny_input_path, sunny_output_path + f'sunny_pano_{environment}.mp4', fps=30)
+            figures2video(sunny_input_path, sunny_output_path + f'sunny_figures_{environment}.mp4', fps=2)
         print('Finished converting frames to video for environment:', environment)
     print('All videos converted successfully!')
-        
-        
-        
+
+
+
 
