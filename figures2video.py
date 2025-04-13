@@ -107,17 +107,17 @@ if __name__ == '__main__':
         if cloudy_query_path is not None:
             if not os.path.exists(cloudy_output_path):
                 os.makedirs(cloudy_output_path)
-            figures2video(cloudy_input_path, cloudy_output_path + f'cloudy_figures_{environment}.mp4', fps=2)
+            figures2video(cloudy_input_path, cloudy_output_path + f'cloudy_figures_{environment}.mp4', fps=4)
             
         if night_query_path is not None:
             if not os.path.exists(night_output_path):
                 os.makedirs(night_output_path)
-            figures2video(night_input_path, night_output_path + f'night_figures_{environment}.mp4', fps=2)
+            figures2video(night_input_path, night_output_path + f'night_figures_{environment}.mp4', fps=4)
 
         if sunny_query_path is not None:
             if not os.path.exists(sunny_output_path):
                 os.makedirs(sunny_output_path)
-            figures2video(sunny_input_path, sunny_output_path + f'sunny_figures_{environment}.mp4', fps=2)
+            figures2video(sunny_input_path, sunny_output_path + f'sunny_figures_{environment}.mp4', fps=4)
         print('Finished converting frames to video for environment:', environment)
     print('All videos converted successfully!')
 
