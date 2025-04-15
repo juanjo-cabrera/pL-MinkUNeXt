@@ -41,7 +41,7 @@ def frames2video(folder, output, fps=30):
 
 if __name__ == '__main__':
     dataset_path_base  = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_LARGE/'
-    input_path_base = '/media/arvc/DATOS/Marcos/DATASETS/COLD/'
+    input_path_base = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_DISTILL_ANY_DEPTH_LARGE/'
     output_path_base = '/media/arvc/DATOS/Juanjo/Datasets/COLD/VIDEOS_RESULTS/'
     environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
     for environment in environments:
@@ -73,17 +73,17 @@ if __name__ == '__main__':
         if cloudy_query_path is not None:
             if not os.path.exists(cloudy_output_path):
                 os.makedirs(cloudy_output_path)
-            frames2video(cloudy_input_path, cloudy_output_path + f'cloudy_pano_{environment}.mp4', fps=60)
+            frames2video(cloudy_input_path, cloudy_output_path + f'cloudy_pano_depth_{environment}.mp4', fps=60)
             
         if night_query_path is not None:
             if not os.path.exists(night_output_path):
                 os.makedirs(night_output_path)
-            frames2video(night_input_path, night_output_path + f'night_pano_{environment}.mp4', fps=60)
+            frames2video(night_input_path, night_output_path + f'night_pano_depth_{environment}.mp4', fps=60)
 
         if sunny_query_path is not None:
             if not os.path.exists(sunny_output_path):
                 os.makedirs(sunny_output_path)
-            frames2video(sunny_input_path, sunny_output_path + f'sunny_pano_{environment}.mp4', fps=60)
+            frames2video(sunny_input_path, sunny_output_path + f'sunny_pano_depth_{environment}.mp4', fps=60)
         print('Finished converting frames to video for environment:', environment)
     print('All videos converted successfully!')
         
