@@ -319,37 +319,9 @@ def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude
         device = PARAMS.cuda_device
     else:
         device = "cpu"
-    # # set cuda device
-    # torch.set_default_device(device)
 
-    #  python tools/testers/infer.py \
-    #     --seed 1234 \  # Set random seed for reproducibility
-    #     --checkpoint 'checkpoint/large/model.safetensors' \  # Path to the pre-trained model checkpoint
-    #     --processing_res 700 \ 
-    #     --output_dir output/${model} \  # Directory to save the output results
-    #     --arch_name 'depthanything-large' 
     arch_name = 'depthanything-large'
-    # checkpoint = '/media/arvc/DATOS/Juanjo/weights/others_work/Distill-Any-Depth/model.safetensors'
-    # model = load_model_by_name(arch_name, checkpoint, device)
     from huggingface_hub import hf_hub_download
-    # model_kwargs = dict(
-    #     vitb=dict(
-    #         encoder='vitb',
-    #         features=128,
-    #         out_channels=[96, 192, 384, 768],
-    #     ),
-    #     vitl=dict(
-    #         encoder="vitl", 
-    #         features=256, 
-    #         out_channels=[256, 512, 1024, 1024], 
-    #         use_bn=False, 
-    #         use_clstoken=False, 
-    #         max_depth=150.0, 
-    #         mode='disparity',
-    #         pretrain_type='dinov2',
-    #         del_mask_token=False
-    #     )
-    # )
     model_kwargs = {
         "large": dict(
             encoder="vitl", 
