@@ -100,6 +100,24 @@ class PNVPointCloudLoader(PointCloudLoader):
         
         return pcd_non_plane
     
+    def filter_by_height_up_down(self, pcd=None, min_height=0.5, max_height=2.0):
+        # filter the points by height
+        points = np.asarray(pcd.points)
+        colors = np.asarray(pcd.colors)
+        idx_min = points[:, 2] > min_height
+        idx_max = points[:, 2] < max_height
+        idx = np.logical_and(idx_min, idx_max)
+        # now select the final pointclouds
+        pcd_non_plane = o3d.geometry.PointCloud()
+        pcd_non_plane.points = o3d.utility.Vector3dVector(points[idx])
+        pcd_non_plane.colors = o3d.utility.Vector3dVector(colors[idx])
+        # pcd_non_plane = PointCloud(points=points[idx], colors=colors[idx])
+
+        # show pointcloud
+        #o3d.visualization.draw_geometries([pcd_non_plane])
+        
+        return pcd_non_plane
+    
     def filter_by_height_features(self, pcd, features, height=0.5):
         # filter the points by height
         points = np.asarray(pcd.points)
@@ -251,13 +269,15 @@ class PNVPointCloudLoader(PointCloudLoader):
             if PARAMS.use_gradients:
                 magnitude_pathname = file_pathname.replace('PCD_SMALL', 'MAGNITUDE')
                 magnitude_pathname = magnitude_pathname.replace('PCD_BASE', 'MAGNITUDE')
-                magnitude_pathname = magnitude_pathname.replace('PCD_LARGE', 'MAGNITUDE')
+                magnitude_pathname = magnitude_pathname.replace('PCD_DEPTH_ANY_PANORAMAS_LARGE', 'MAGNITUDE')
                 angle_pathname = file_pathname.replace('PCD_SMALL', 'ANGLE')
                 angle_pathname = angle_pathname.replace('PCD_BASE', 'ANGLE')
-                angle_pathname = angle_pathname.replace('PCD_LARGE', 'ANGLE')
+                angle_pathname = angle_pathname.replace('PCD_DEPTH_ANY_PANORAMAS_LARGE', 'MAGNITUDE')
                 # replace the extension .ply by .npy
                 magnitude_pathname = magnitude_pathname.replace('.ply', '.npy')
                 angle_pathname = angle_pathname.replace('.ply', '.npy')
+                # magnitude_pathname = magnitude_pathname.replace('0000', '00')
+                # angle_pathname = angle_pathname.replace('0000', '00')
                 magnitude = np.load(magnitude_pathname)
                 angle = np.load(angle_pathname)
                 magnitude = magnitude.reshape(-1, 1)
@@ -298,7 +318,7 @@ class PNVPointCloudLoader(PointCloudLoader):
                     ones = np.ones((magnitude.shape[0], 1))
                     features = np.column_stack((x, y, ones), axis=1)
                 elif PARAMS.use_magnitude_anglexy:
-                    features = np.column_stack((magnitude, x, y), axis=1)
+                    features = np.column_stack((magnitude, x, y))
                 elif PARAMS.use_magnitude_anglexy_hue:
                     hue = self.rgb_to_hue(np.asarray(pcd.colors))
                     features = np.column_stack((magnitude, x, y, hue), axis=1)
@@ -311,7 +331,9 @@ class PNVPointCloudLoader(PointCloudLoader):
 
             # filter the points by height
             if PARAMS.height is not None:
-                pcd = self.filter_by_height(pcd, height=PARAMS.height)       
+                PARAMS.height = -1
+                # pcd = self.filter_by_height(pcd, height=PARAMS.height)   
+                pcd = self.filter_by_height_up_down(pcd, min_height=-1.0, max_height=1.0)    
             # show pointcloud
             #o3d.visualization.draw_geometries([pcd])
             if PARAMS.voxel_size is not None:
@@ -319,9 +341,13 @@ class PNVPointCloudLoader(PointCloudLoader):
                 # o3d_pcd = o3d.geometry.PointCloud()
                 # o3d_pcd.points = o3d.utility.Vector3dVector(pcd.points)
                 # o3d_pcd.colors = o3d.utility.Vector3dVector(pcd.colors)      
-                # pcd = o3d_pcd          
+                # pcd = o3d_pcd  
+                # print number of points before downsampling
+                print("Number of points before downsampling: ", len(pcd.points))        
                 pcd = pcd.voxel_down_sample(voxel_size=PARAMS.voxel_size)
+                print("Number of points after downsampling: ", len(pcd.points))
                 #pcd.points, pcd.colors = self.voxel_downsample_with_features(pcd.points, pcd.colors, voxel_size=PARAMS.voxel_size)
+                # o3d.visualization.draw_geometries([pcd])
 
             points, colors = self.global_normalize(pcd, max_distance=PARAMS.max_distance)
             # normalize the color

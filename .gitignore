@@ -2,6 +2,11 @@
 /shelf/
 /wandb/
 /weights/
+/casspr/
+/minkloc3dv2/
+/svtnet/
+/transloc3d/
+/training/wandb/
 /workspace.xml
 # ignore all .xml files
 *.xml
@@ -33,3 +38,9 @@
 # ignore all events files
 events.out.tfevents.*
 
+# ignore all .log files
+*.cu
+# ignore all .log files
+*.ho
+# ignore all .pyc files
+# ignore all .pyc files

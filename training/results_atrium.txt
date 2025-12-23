@@ -1,0 +1,5 @@
+baseline, Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test, 92.27, 77.98, 92.27, 77.98
+baseline, Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test, 54.28, 34.81, 92.27, 77.98, 73.27, 56.40
+baseline, Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test, 48.73, 30.46, 54.28, 34.81, 75.96, 57.37, 92.27, 77.98, 67.81, 50.16
+baseline, Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test, 86.80, 55.33, 83.92, 58.41, 46.96, 27.08, 53.95, 34.45, 67.91, 43.82
+baseline, Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test, 81.22, 57.87, 82.89, 51.03, 45.83, 28.37, 53.45, 32.94, 65.85, 42.55

@@ -1,0 +1,1 @@
+baseline, Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25_20250408_0112_best_test, 76.84, 52.60, 57.29, 38.75, 67.07, 45.68

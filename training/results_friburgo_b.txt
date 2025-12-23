@@ -27,7 +27,7 @@ baseline, model_MinkUNeXt_refined, 94.12, 87.45, 96.49, 88.98, 95.31, 88.22
 Feature: Magnitude + AngleXY + Hue + Grey
 baseline, model_MinkUNeXt_refined, 93.03, 85.51, 98.11, 90.04, 95.57, 87.77
 Feature: Magnitude + AngleXY + Hue
-baseline, Indoor_MinkUNeXt_seq2_gradients_pos_per_query16batch_size512_truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250312_1847_best_test, 93.87, 86.60, 98.11, 90.54, 95.99, 88.57
+baseline, Indoor_MinkUNeXt_seq2_gradients_pos_per_query16batch_size512Indoor_MinkUNeXt_pos_per_query16batch_size512_truncated_aug6depths0.4pos0.4neg0.4voxel_size0.05height-0.25truncated_augonly_best_effects0.5pos0.7neg0.7voxel_size0.05height-0.25_20250312_1847_best_test, 93.87, 86.60, 98.11, 90.54, 95.99, 88.57
 Feature: Magnitude + AngleXY + Hue + RGB
 baseline, model_MinkUNeXt_refined, 93.08, 86.95, 99.83, 92.99, 96.46, 89.97
 Ones

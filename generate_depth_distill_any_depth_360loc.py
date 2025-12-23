@@ -1,0 +1,494 @@
+import sys
+import torch
+import os
+from PIL import Image
+import shutil
+import cv2
+import numpy as np
+import open3d as o3d
+import matplotlib.pyplot as plt
+import yaml
+# Add the parent directory to sys.path
+
+from torchvision import transforms
+from torch.utils.data._utils.collate import default_collate
+
+# Add the parent directory to sys.path
+sys.path.append('/home/arvc/Juanjo/develop/others_work/Distill-Any-Depth')
+# from tools.testers.infer import load_model_by_name
+from distillanydepth.modeling.archs.dam.dam import DepthAnything
+from distillanydepth.depth_anything_v2.dpt import DepthAnythingV2
+from distillanydepth.midas.transforms import Resize, NormalizeImage, PrepareForNet
+from distillanydepth.utils.image_util import chw2hwc, colorize_depth_maps
+from torchvision.transforms import Compose
+from safetensors.torch import load_file  # 导入 safetensors 库
+
+# Get the current script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory by going one level up
+parent_dir = os.path.dirname(current_dir)
+# Add the parent directory to sys.path
+sys.path.append(parent_dir)
+from config.config import PARAMS
+
+
+# Add the parent directory to sys.path
+
+def load_model_by_name(arch_name, checkpoint_path, device):
+    model_kwargs = dict(
+        vits=dict(
+            encoder='vits', 
+            features=64,
+            out_channels=[48, 96, 192, 384]
+        ),
+        vitb=dict(
+            encoder='vitb',
+            features=128,
+            out_channels=[96, 192, 384, 768],
+        ),
+        vitl=dict(
+            encoder="vitl", 
+            features=256, 
+            out_channels=[256, 512, 1024, 1024], 
+            use_bn=False, 
+            use_clstoken=False, 
+            max_depth=150.0, 
+            mode='disparity',
+            pretrain_type='dinov2',
+            del_mask_token=False
+        )
+    )
+
+    # Load model
+    if arch_name == 'depthanything-large':
+        model = DepthAnything(**model_kwargs['vitl']).to(device)
+        # checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"large/model.safetensors", repo_type="model")
+
+    elif arch_name == 'depthanything-base':
+        model = DepthAnythingV2(**model_kwargs['vitb']).to(device)
+        # checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"base/model.safetensors", repo_type="model")
+    elif arch_name == 'depthanything-small':
+        model = DepthAnythingV2(**model_kwargs['vits']).to(device)
+        # checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"base/model.safetensors", repo_type="model")
+
+    else:
+        raise NotImplementedError(f"Unknown architecture: {arch_name}")
+    
+    # safetensors 
+    model_weights = load_file(checkpoint_path)
+    model.load_state_dict(model_weights)
+    del model_weights
+    torch.cuda.empty_cache()
+    return model
+
+def get_depth_v2(raw_img):
+    from depth_anything_v2.dpt import DepthAnythingV2
+    if torch.cuda.is_available():
+        device = PARAMS.device
+    else:
+        device = "cpu"
+    # set cuda device
+    torch.set_default_device(device)
+
+
+    model_configs = {
+    'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
+    'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+    'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
+    'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}}
+
+
+    encoder = 'vitl' # or 'vits', 'vitb', 'vitg'
+    model = DepthAnythingV2(encoder=encoder, features=model_configs[encoder]['features'], out_channels=model_configs[encoder]['out_channels'])
+    model.load_state_dict(torch.load(f'/home/arvc/Juanjo/develop/others_work/Depth-Anything-V2/depth_anything_v2_{encoder}.pth', map_location=device))
+    model.eval()
+    model.to(device)
+    depth = model.infer_image(raw_img)  # HxW raw depth map
+    return depth
+
+
+def get_metric_depth_v2(raw_img):
+    from metric_depth.depth_anything_v2.dpt import DepthAnythingV2
+    if torch.cuda.is_available():
+        device = PARAMS.device
+    else:
+        device = "cpu"
+
+    model_configs = {
+        'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
+        'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+        'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]}
+    }
+
+    encoder = 'vitl'  # or 'vits', 'vitb'
+    dataset = 'hypersim'  # 'hypersim' for indoor model, 'vkitti' for outdoor model
+    max_depth = 20  # 20 for indoor model, 80 for outdoor model
+
+    model = DepthAnythingV2(**{**model_configs[encoder], 'max_depth': max_depth})
+    model.load_state_dict(
+        torch.load(f'/home/arvc/Juanjo/develop/others_work/Depth-Anything-V2/depth_anything_v2_metric_{dataset}_{encoder}.pth', map_location='cpu'))
+    model.eval()
+    model.to(device)
+    depth = model.infer_image(raw_img)  # HxW raw depth map
+    return depth
+
+
+
+def get_pointcloud_cylindrical(color_image, depth, scale_y=0.015, depth_min=1, depth_max=6.0):
+    width, height = color_image.size
+
+    # Resize depth prediction to match the original image size
+    resized_pred = Image.fromarray(depth).resize((width, height), Image.NEAREST)
+
+    # Convert depth from 0-255 to actual depth values in meters
+    z = np.array(resized_pred)
+    z = depth_min + (z / 255.0) * (depth_max - depth_min)
+
+    # Map each pixel (u, v) in the panorama to cylindrical coordinates
+    # u -> azimuth (theta), v -> height (y)
+    theta = (np.arange(width) / width) * 2 * np.pi  # azimuthal angle (theta)
+    y = (np.arange(height) - height / 2) * scale_y  # convert pixel height to meters
+
+    theta, y = np.meshgrid(theta, y)
+
+    # Convert cylindrical coordinates to Cartesian coordinates
+    x = z * np.sin(theta)
+    z = z * np.cos(theta)
+
+    # Stack x, y, z into a list of 3D points
+    points = np.stack((x, y, z), axis=-1).reshape(-1, 3)
+    # transform points to the world coordinates
+    # apply a rotation matrix of 90 degrees around the x-axis
+    rotation_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+    points = np.dot(points, np.linalg.inv(rotation_matrix).T)
+
+    # Normalize color image and flatten
+    colors = np.array(color_image).reshape(-1, 3) / 255.0
+
+    # Create the point cloud
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+
+    return pcd
+
+
+
+def ceil_modulo(x, mod):
+    if x % mod == 0:
+        return x
+    return (x // mod + 1) * mod
+def pad_img_to_modulo(img, mod):
+    channels, height, width = img.shape
+    out_height = ceil_modulo(height, mod)
+    out_width = ceil_modulo(width, mod)
+    return np.pad(img, ((0, 0), (0, out_height - height), (0, out_width - width)), mode='symmetric')
+
+
+
+
+def process_image_and_pcd(model, transform, src_color_dir, depth_dir, device):
+    # plt.switch_backend('TkAgg')  # Specify the backend
+    """
+    Procesa la imagen y la guarda en la misma ubicación
+    con '_depth' agregado al nombre del archivo.
+    """
+ 
+        
+    # Si ya existe, pasa a la siguiente imagen
+    if os.path.exists(depth_dir):
+        print(f"La imagen {depth_dir} ya existe.")
+        return
+    image = Image.open(src_color_dir)
+    validation_image_np = np.array(image)[..., ::-1] / 255
+    #validation_image_np = cv2.imread(image_path, cv2.COLOR_BGR2RGB)[..., ::-1] / 255
+    
+    validation_image = transform({'image': validation_image_np})['image']
+    validation_image = torch.from_numpy(validation_image).unsqueeze(0).to(device)
+
+    with torch.no_grad():
+        pred_disp, _ = model(validation_image)
+    torch.cuda.empty_cache()
+
+    # Convert depth map to numpy
+    # pred_disp_np = pred_disp.cpu().detach().numpy()[0, :, :, :].transpose(1, 2, 0)
+    pred_disp_np = pred_disp.cpu().detach().numpy()[0, 0, :, :]
+    pred_disp = (pred_disp_np - pred_disp_np.min()) / (pred_disp_np.max() - pred_disp_np.min())
+    
+  
+   
+    # mode = 'metric'
+    # cmap = "Spectral_r" if mode != 'metric' else 'Spectral_r'
+    # depth_colored = colorize_depth_maps(pred_disp[None, ...], 0, 1, cmap=cmap).squeeze()
+    # depth_colored = (depth_colored * 255).astype(np.uint8)
+    # depth_colored_hwc = chw2hwc(depth_colored)
+
+    
+    depth_gray = (pred_disp * 255).astype(np.uint8)
+    depth_gray_hwc = np.stack([depth_gray] * 3, axis=-1)
+    # move axis from hwc to chw
+    # depth_gray = np.moveaxis(depth_gray, -1, 0)
+    # # Convert to 3-channel grayscale
+    # depth_gray = np.stack([depth_gray[0]] * 3, axis=0)
+    # depth_gray_hwc = chw2hwc(depth_gray)
+
+    val_img_np = validation_image_np * 255
+    h, w = val_img_np.shape[:2]
+    # depth_colored_hwc = cv2.resize(depth_colored_hwc, (w, h), cv2.INTER_LINEAR)
+    depth_gray_hwc = cv2.resize(depth_gray_hwc, (w, h), cv2.INTER_LINEAR)
+    # las imagenes son 360 grados, es decir, el extremo izquierdo y derecho estan conectados. Haz una interpolacion teniendo en cuenta que los pixeles de la izquierda y derecha deben ser similares
+
+    # image_out = Image.fromarray(np.concatenate([depth_colored_hwc], axis=1))
+    # show the image
+    # plt.imshow(image_out)
+    # plt.show()
+
+    # create an histogram of depth_gray_hwc
+    # hist, bins = np.histogram(depth_gray_hwc.flatten(), 256, [0,256])
+    # plt.plot(hist)
+    # plt.title('Histogram of depth image')
+    # plt.xlabel('Pixel value')
+    # plt.ylabel('Frequency')
+    # plt.show()
+    
+
+   
+
+    # Aquí podrías aplicar algún filtro de procesamiento a la imagen
+
+        
+    cv2.imwrite(depth_dir, depth_gray_hwc)
+
+    print(f"Imagen procesada y guardada en {depth_dir}")
+  
+
+
+def global_normalize(pcd):
+    import copy
+    """
+    Normalize a pointcloud to achieve mean zero, scaled between [-1, 1] and with a fixed number of points
+    """
+    pcd = copy.deepcopy(pcd)
+    # points = np.asarray(self.pointcloud_normalized.points)
+    points = np.asarray(pcd.points)
+
+    [x, y, z] = points[:, 0], points[:, 1], points[:, 2]
+    x_mean = np.mean(x)
+    y_mean = np.mean(y)
+    z_mean = np.mean(z)
+
+    x = x - x_mean
+    y = y - y_mean
+    z = z - z_mean
+
+    x = x / 14 * 50
+    y = y / 14 * 50
+    z = z / 14 * 50
+
+    points[:, 0] = x
+    points[:, 1] = y
+    points[:, 2] = z
+
+    pointcloud_normalized = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(points))
+    return pointcloud_normalized
+
+def process_image(image_path, src_dir, dst_dir):
+    """
+    Procesa la imagen y la guarda en la misma ubicación
+    con '_depth' agregado al nombre del archivo.
+    """
+    try:
+        new_image_path = image_path.replace(src_dir, dst_dir)     
+        # Si ya existe, pasa a la siguiente imagen
+        if os.path.exists(new_image_path):
+            print(f"La imagen {new_image_path} ya existe.")
+            return
+        image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+        # Aquí podrías aplicar algún filtro de procesamiento a la imagen
+        processed_image = get_depth_v2(image)
+        # Muestra la imagen procesada
+        #cv2.imshow('Processed Image', processed_image)    
+        
+           
+        cv2.imwrite(new_image_path, processed_image)
+
+        print(f"Imagen procesada y guardada en {new_image_path}")
+    except Exception as e:
+        print(f"Error al procesar la imagen {image_path}: {e}")
+
+
+
+def copy_structure_and_process_images(src_color_dir, depth_dir, pcd_dir, exclude_dir_names, depth='depth'):
+   
+ 
+    if torch.cuda.is_available():
+        device = PARAMS.cuda_device
+    else:
+        device = "cpu"
+
+    arch_name = 'depthanything-large'
+    from huggingface_hub import hf_hub_download
+    model_kwargs = {
+        "large": dict(
+            encoder="vitl", 
+            features=256, 
+            out_channels=[256, 512, 1024, 1024], 
+            use_bn=False, 
+            use_clstoken=False, 
+            max_depth=150.0, 
+            mode='disparity',
+            pretrain_type='dinov2',
+            del_mask_token=False
+        ),
+        "base": dict(
+            encoder='vitb',
+            features=128,
+            out_channels=[96, 192, 384, 768],
+        ),
+        "small": dict(
+            encoder='vits',
+            features=64,
+            out_channels=[48, 96, 192, 384],
+        )
+    }
+
+   
+    model_name = 'large'
+    checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"{model_name}/model.safetensors", repo_type="model")
+    model_weights = load_file(checkpoint_path) 
+    if model_name == 'large':
+        model = DepthAnything(**model_kwargs['large'])
+    else:
+        model = DepthAnythingV2(**model_kwargs[model_name])
+       
+    model.load_state_dict(model_weights)
+    model = model.to(device)  
+
+    transform = Compose([
+        Resize(512, 512, resize_target=False, keep_aspect_ratio=True, ensure_multiple_of=14, resize_method='lower_bound', image_interpolation_method=cv2.INTER_CUBIC),
+        NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        PrepareForNet()
+    ])
+
+
+    """
+    Copia la estructura de carpetas de src_dir a dst_dir y procesa las imágenes,
+    excluyendo las carpetas con el nombre dado.
+
+    Primero comprueba si ya existen las carpetas de destino, si no, las crea.
+    """
+    for root, dirs, files in os.walk(src_color_dir):
+        # Excluir la carpetas especificadas
+        #dirs[:] = [d for d in dirs if d != exclude_dir_name]
+        for exclude_dir_name in exclude_dir_names:
+            if exclude_dir_name in dirs:
+                dirs.remove(exclude_dir_name)
+
+        # Crea las carpetas en el directorio de destino
+        for dir in dirs:
+            # Si la carpeta no existe, la crea    
+            os.makedirs(os.path.join(pcd_dir, os.path.relpath(os.path.join(root, dir), src_color_dir)), exist_ok=True)
+            os.makedirs(os.path.join(depth_dir, os.path.relpath(os.path.join(root, dir), src_color_dir)), exist_ok=True)
+
+        for file in files:
+            src_file_path = os.path.join(root, file)
+            rel_path = os.path.relpath(src_file_path, src_color_dir)
+            dst_file_path = os.path.join(pcd_dir, rel_path)
+
+            # Procesa las imágenes y guarda en el directorio destino
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
+                process_image_and_pcd(model, transform, src_file_path, src_color_dir, depth_dir, arch_name, device)
+          
+            else:
+                # Copia los archivos que no son imágenes sin procesar
+                os.makedirs(os.path.dirname(dst_file_path), exist_ok=True)
+                shutil.copy(src_file_path, dst_file_path)
+
+if __name__ == "__main__":
+
+
+
+    if torch.cuda.is_available():
+        device = PARAMS.cuda_device
+    else:
+        device = "cpu"
+
+    arch_name = 'depthanything-large'
+    from huggingface_hub import hf_hub_download
+    model_kwargs = {
+        "large": dict(
+            encoder="vitl", 
+            features=256, 
+            out_channels=[256, 512, 1024, 1024], 
+            use_bn=False, 
+            use_clstoken=False, 
+            max_depth=150.0, 
+            mode='disparity',
+            pretrain_type='dinov2',
+            del_mask_token=False
+        ),
+        "base": dict(
+            encoder='vitb',
+            features=128,
+            out_channels=[96, 192, 384, 768],
+        ),
+        "small": dict(
+            encoder='vits',
+            features=64,
+            out_channels=[48, 96, 192, 384],
+        )
+    }
+
+   
+    model_name = 'large'
+    checkpoint_path = hf_hub_download(repo_id=f"xingyang1/Distill-Any-Depth", filename=f"{model_name}/model.safetensors", repo_type="model")
+    model_weights = load_file(checkpoint_path) 
+    if model_name == 'large':
+        model = DepthAnything(**model_kwargs['large'])
+    else:
+        model = DepthAnythingV2(**model_kwargs[model_name])
+       
+    model.load_state_dict(model_weights)
+    model = model.to(device)  
+
+    transform = Compose([
+        Resize(512, 512, resize_target=False, keep_aspect_ratio=True, ensure_multiple_of=14, resize_method='lower_bound', image_interpolation_method=cv2.INTER_CUBIC),
+        NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        PrepareForNet()
+    ])
+
+    PARAMS.cuda_device = 'cuda:0'
+    base_dir = '/media/arvc/DATOS1/Marcos/DATASETS/360LOC/'
+    environments = os.listdir(base_dir)
+    for environment in environments:
+        map_dir = os.path.join(base_dir, environment, 'mapping')
+        queries_dir = os.path.join(base_dir, environment, 'query_360')
+        map_sequences = os.listdir(map_dir)
+        # join 'image' in the root of map_sequences
+        map_sequences = [os.path.join(map_dir, seq, 'image') for seq in map_sequences]
+        query_sequences = os.listdir(queries_dir)
+        query_sequences = [os.path.join(queries_dir, seq, 'image') for seq in query_sequences]
+        
+        # create a folder at the same level of 'image' called 'depth' and 'pcd'
+        # exclude_directory_names = ['depth', 'pcd']
+        import tqdm
+        for seq in tqdm.tqdm(map_sequences + query_sequences):
+        # for seq in map_sequences + query_sequences:
+            os.makedirs(os.path.join(os.path.dirname(seq), 'DEPTH_DISTILL_ANY_DEPTH_LARGE'), exist_ok=True)
+            os.makedirs(os.path.join(os.path.dirname(seq), 'PCD_DISTILL_ANY_DEPTH_LARGE'), exist_ok=True)
+            # for file in os.listdir(seq):
+            for file in tqdm.tqdm(os.listdir(seq)):
+                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
+                    src_image_file = os.path.join(seq, file)
+                    dst_depth_file = os.path.join(os.path.dirname(seq), 'DEPTH_DISTILL_ANY_DEPTH_LARGE', file)
+                    process_image_and_pcd(model, transform, src_image_file, dst_depth_file, device)
+    # environments = ['FRIBURGO_A', 'FRIBURGO_B', 'SAARBRUCKEN_A', 'SAARBRUCKEN_B']
+    # #environments = ['FRIBURGO_A']
+    # for environment in environments:
+    #     # Directorio fuente y destino
+    #     src_color_directory  = '/media/arvc/DATOS/Marcos/DATASETS/COLD/' + environment + '/'
+    #     pcd_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_DISTILL_ANY_DEPTH_SMALL/' + environment + '/'
+    #     depth_directory = '/media/arvc/DATOS/Juanjo/Datasets/COLD/DEPTH_DISTILL_ANY_DEPTH_SMALL/' + environment + '/'
+    #     exclude_directory_names = ['RepImages', 'RepresentativeImages', 'fr_seq2_cloudy3', 'Train2']
+
+    #     copy_structure_and_process_images(src_color_directory, depth_directory, pcd_directory, exclude_directory_names)

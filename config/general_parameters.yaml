@@ -1,5 +1,5 @@
-dataset_folder: '/media/arvc/DATOS/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/'
-test_folder: '/media/arvc/DATOS/Juanjo/Datasets/PCD_non_metric_Friburgo/'
+dataset_folder: '/media/arvc/DATOS1/Juanjo/Datasets/COLD/PCD_LARGE/FRIBURGO_A/'
+test_folder: '/media/arvc/DATOS1/Juanjo/Datasets/PCD_non_metric_Friburgo/'
 
 cuda_device: 'cuda:1' # 'cuda:0' or 'cuda:1'
 positive_distance: 0.5 # meters
@@ -44,7 +44,7 @@ height: -0.25 # meters
 save_best: True
 
 quantization_size: 0.01
-num_workers: 0
+num_workers: 12
 batch_size: 2048
 batch_size_limit: 2048
 batch_expansion_rate: Null
